@@ -1,0 +1,7 @@
+node_modules/
+dist/
+build/
+backend/uploads/
+backend/uploads-test/
+backend/prisma/migrations/
+*.md
