@@ -1,0 +1,1433 @@
+[
+  {
+    "key": "DASHBOARD.VIEW",
+    "module": "DASHBOARD",
+    "action": "VIEW",
+    "label": "View Dashboard",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASES.VIEW_ALL",
+    "module": "CASES",
+    "action": "VIEW_ALL",
+    "label": "View All Cases",
+    "isViewScope": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASES.VIEW_ASSIGNED",
+    "module": "CASES",
+    "action": "VIEW_ASSIGNED",
+    "label": "View Assigned Cases",
+    "isViewScope": true,
+    "defaults": {
+      "MANAGING_PARTNER": false,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASES.CREATE",
+    "module": "CASES",
+    "action": "CREATE",
+    "label": "Create Case",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASES.EDIT",
+    "module": "CASES",
+    "action": "EDIT",
+    "label": "Edit Case Details",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASES.CHANGE_STATUS",
+    "module": "CASES",
+    "action": "CHANGE_STATUS",
+    "label": "Change Case Status/Stage",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASES.MANAGE_ADVOCATES",
+    "module": "CASES",
+    "action": "MANAGE_ADVOCATES",
+    "label": "Add/Remove Advocates",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASES.DELETE",
+    "module": "CASES",
+    "action": "DELETE",
+    "label": "Delete Case (soft)",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASES.REASSIGN",
+    "module": "CASES",
+    "action": "REASSIGN",
+    "label": "Reassign Case to a Different Partner",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASES.RESTORE",
+    "module": "CASES",
+    "action": "RESTORE",
+    "label": "Restore Case",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASES.PERMANENT_DELETE",
+    "module": "CASES",
+    "action": "PERMANENT_DELETE",
+    "label": "Permanently Delete Case",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CLIENTS.VIEW_ALL",
+    "module": "CLIENTS",
+    "action": "VIEW_ALL",
+    "label": "View All Clients",
+    "isViewScope": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CLIENTS.VIEW_ASSIGNED",
+    "module": "CLIENTS",
+    "action": "VIEW_ASSIGNED",
+    "label": "View Case-Linked Clients",
+    "isViewScope": true,
+    "defaults": {
+      "MANAGING_PARTNER": false,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CLIENTS.CREATE",
+    "module": "CLIENTS",
+    "action": "CREATE",
+    "label": "Create Client",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CLIENTS.EDIT",
+    "module": "CLIENTS",
+    "action": "EDIT",
+    "label": "Edit Client Profile",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CLIENTS.CHANGE_STATUS",
+    "module": "CLIENTS",
+    "action": "CHANGE_STATUS",
+    "label": "Change Client Status",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CLIENTS.DELETE",
+    "module": "CLIENTS",
+    "action": "DELETE",
+    "label": "Delete Client (soft)",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CLIENTS.RESTORE",
+    "module": "CLIENTS",
+    "action": "RESTORE",
+    "label": "Restore Client",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CLIENTS.PERMANENT_DELETE",
+    "module": "CLIENTS",
+    "action": "PERMANENT_DELETE",
+    "label": "Permanently Delete Client",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CLIENTS.MANAGE_PORTAL_ACCESS",
+    "module": "CLIENTS",
+    "action": "MANAGE_PORTAL_ACCESS",
+    "label": "Manage Client Portal Permissions",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.VIEW_ALL",
+    "module": "TASKS",
+    "action": "VIEW_ALL",
+    "label": "View All Tasks (firm-wide)",
+    "isViewScope": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.VIEW_ASSIGNED",
+    "module": "TASKS",
+    "action": "VIEW_ASSIGNED",
+    "label": "View Tasks on Accessible Cases",
+    "isViewScope": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.VIEW_OWN",
+    "module": "TASKS",
+    "action": "VIEW_OWN",
+    "label": "View My Tasks",
+    "isViewScope": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "TASKS.CREATE",
+    "module": "TASKS",
+    "action": "CREATE",
+    "label": "Create Task",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.EDIT",
+    "module": "TASKS",
+    "action": "EDIT",
+    "label": "Edit Task Details",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.CHANGE_STATUS",
+    "module": "TASKS",
+    "action": "CHANGE_STATUS",
+    "label": "Update Task Status",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.ASSIGN",
+    "module": "TASKS",
+    "action": "ASSIGN",
+    "label": "Reassign Task",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.DELETE",
+    "module": "TASKS",
+    "action": "DELETE",
+    "label": "Delete Task (soft)",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.RESTORE",
+    "module": "TASKS",
+    "action": "RESTORE",
+    "label": "Restore Task",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TASKS.PERMANENT_DELETE",
+    "module": "TASKS",
+    "action": "PERMANENT_DELETE",
+    "label": "Permanently Delete Task",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "HEARINGS.VIEW",
+    "module": "HEARINGS",
+    "action": "VIEW",
+    "label": "View Hearings",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "HEARINGS.CREATE",
+    "module": "HEARINGS",
+    "action": "CREATE",
+    "label": "Schedule Hearing",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "HEARINGS.EDIT",
+    "module": "HEARINGS",
+    "action": "EDIT",
+    "label": "Reschedule / Record Outcome",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASE_NOTES.VIEW",
+    "module": "CASE_NOTES",
+    "action": "VIEW",
+    "label": "View Case Notes / Diary",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CASE_NOTES.CREATE",
+    "module": "CASE_NOTES",
+    "action": "CREATE",
+    "label": "Add Case Note",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "DOCUMENTS.VIEW",
+    "module": "DOCUMENTS",
+    "action": "VIEW",
+    "label": "View Documents",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "DOCUMENTS.UPLOAD",
+    "module": "DOCUMENTS",
+    "action": "UPLOAD",
+    "label": "Upload / Add Version",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "DOCUMENTS.DELETE",
+    "module": "DOCUMENTS",
+    "action": "DELETE",
+    "label": "Delete Document (soft)",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "DOCUMENTS.RESTORE",
+    "module": "DOCUMENTS",
+    "action": "RESTORE",
+    "label": "Restore Document",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "DOCUMENTS.PERMANENT_DELETE",
+    "module": "DOCUMENTS",
+    "action": "PERMANENT_DELETE",
+    "label": "Permanently Delete Document",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "DOCUMENTS.APPROVE",
+    "module": "DOCUMENTS",
+    "action": "APPROVE",
+    "label": "Approve Document (reserved)",
+    "defaults": {
+      "MANAGING_PARTNER": false,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CALENDAR.VIEW",
+    "module": "CALENDAR",
+    "action": "VIEW",
+    "label": "View Hearing Calendar",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "EMPLOYEE_AUDIT.VIEW",
+    "module": "EMPLOYEE_AUDIT",
+    "action": "VIEW",
+    "label": "View Employee Task Audit",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "RECYCLE_BIN.VIEW",
+    "module": "RECYCLE_BIN",
+    "action": "VIEW",
+    "label": "View Recycle Bin",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "USERS.VIEW",
+    "module": "USERS",
+    "action": "VIEW",
+    "label": "View User Accounts (admin list)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "USERS.VIEW_DIRECTORY",
+    "module": "USERS",
+    "action": "VIEW_DIRECTORY",
+    "label": "Staff Directory (name/role lookup)",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "USERS.CREATE",
+    "module": "USERS",
+    "action": "CREATE",
+    "label": "Create User Account",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "USERS.EDIT_STATUS",
+    "module": "USERS",
+    "action": "EDIT_STATUS",
+    "label": "Activate/Deactivate User",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "USERS.FORCE_LOGOUT",
+    "module": "USERS",
+    "action": "FORCE_LOGOUT",
+    "label": "Force Logout (all devices)",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "USERS.MANAGE_PERMISSIONS",
+    "module": "USERS",
+    "action": "MANAGE_PERMISSIONS",
+    "label": "Manage Roles & Permissions",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "SETTINGS.VIEW",
+    "module": "SETTINGS",
+    "action": "VIEW",
+    "label": "View Dropdown Values",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "SETTINGS.MANAGE",
+    "module": "SETTINGS",
+    "action": "MANAGE",
+    "label": "Manage Dropdown Values",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "AUDIT_LOG.VIEW_ALL",
+    "module": "AUDIT_LOG",
+    "action": "VIEW_ALL",
+    "label": "View Full Audit Log",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "AUDIT_LOG.VIEW_OWN",
+    "module": "AUDIT_LOG",
+    "action": "VIEW_OWN",
+    "label": "View Own Action History",
+    "defaults": {
+      "MANAGING_PARTNER": false,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "REPORTS.VIEW",
+    "module": "REPORTS",
+    "action": "VIEW",
+    "label": "View Reports",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "REPORTS.EXPORT",
+    "module": "REPORTS",
+    "action": "EXPORT",
+    "label": "Export Reports",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CONTACTS.VIEW",
+    "module": "CONTACTS",
+    "action": "VIEW",
+    "label": "View Contact Directory",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CONTACTS.CREATE",
+    "module": "CONTACTS",
+    "action": "CREATE",
+    "label": "Create Contact",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CONTACTS.EDIT",
+    "module": "CONTACTS",
+    "action": "EDIT",
+    "label": "Edit Contact",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CONTACTS.DELETE",
+    "module": "CONTACTS",
+    "action": "DELETE",
+    "label": "Delete Contact (soft)",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CONTACTS.RESTORE",
+    "module": "CONTACTS",
+    "action": "RESTORE",
+    "label": "Restore Contact",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CONTACTS.PERMANENT_DELETE",
+    "module": "CONTACTS",
+    "action": "PERMANENT_DELETE",
+    "label": "Permanently Delete Contact",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TIMELOGS.VIEW",
+    "module": "TIMELOGS",
+    "action": "VIEW",
+    "label": "View Time Logs",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "TIMELOGS.CREATE",
+    "module": "TIMELOGS",
+    "action": "CREATE",
+    "label": "Log Billable Hours",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TIMELOGS.EDIT",
+    "module": "TIMELOGS",
+    "action": "EDIT",
+    "label": "Edit Time Log",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "TIMELOGS.DELETE",
+    "module": "TIMELOGS",
+    "action": "DELETE",
+    "label": "Delete Time Log",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "EXPENSES.VIEW",
+    "module": "EXPENSES",
+    "action": "VIEW",
+    "label": "View Expenses",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "EXPENSES.CREATE",
+    "module": "EXPENSES",
+    "action": "CREATE",
+    "label": "Log Expense",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "EXPENSES.EDIT",
+    "module": "EXPENSES",
+    "action": "EDIT",
+    "label": "Edit Expense",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "EXPENSES.DELETE",
+    "module": "EXPENSES",
+    "action": "DELETE",
+    "label": "Delete Expense (soft)",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "EXPENSES.RESTORE",
+    "module": "EXPENSES",
+    "action": "RESTORE",
+    "label": "Restore Expense",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "EXPENSES.PERMANENT_DELETE",
+    "module": "EXPENSES",
+    "action": "PERMANENT_DELETE",
+    "label": "Permanently Delete Expense",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "BILLING.VIEW",
+    "module": "BILLING",
+    "action": "VIEW",
+    "label": "View Invoices",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "BILLING.CREATE_DRAFT",
+    "module": "BILLING",
+    "action": "CREATE_DRAFT",
+    "label": "Draft Invoice",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "BILLING.APPROVE",
+    "module": "BILLING",
+    "action": "APPROVE",
+    "label": "Approve/Send Invoice",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "BILLING.RECORD_PAYMENT",
+    "module": "BILLING",
+    "action": "RECORD_PAYMENT",
+    "label": "Record Payment",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "DATA_IMPORT.RUN",
+    "module": "DATA_IMPORT",
+    "action": "RUN",
+    "label": "Bulk Import Clients/Matters/Contacts",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "FIRM_PROFILE.VIEW",
+    "module": "FIRM_PROFILE",
+    "action": "VIEW",
+    "label": "View Firm Profile",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "FIRM_PROFILE.MANAGE",
+    "module": "FIRM_PROFILE",
+    "action": "MANAGE",
+    "label": "Edit Firm Profile",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "ANNOUNCEMENTS.VIEW",
+    "module": "ANNOUNCEMENTS",
+    "action": "VIEW",
+    "label": "View Office Announcements",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ANNOUNCEMENTS.CREATE",
+    "module": "ANNOUNCEMENTS",
+    "action": "CREATE",
+    "label": "Post Office Announcement",
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "CUSTOM_FIELDS.MANAGE",
+    "module": "CUSTOM_FIELDS",
+    "action": "MANAGE",
+    "label": "Manage Custom Fields",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "SESSIONS.VIEW_ANY",
+    "module": "SESSIONS",
+    "action": "VIEW_ANY",
+    "label": "View Any User's Sessions",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": false
+    }
+  },
+  {
+    "key": "ACCOUNTS.VIEW",
+    "module": "ACCOUNTS",
+    "action": "VIEW",
+    "label": "View Accounts",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.CREATE_PAYMENT",
+    "module": "ACCOUNTS",
+    "action": "CREATE_PAYMENT",
+    "label": "Record Payment",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.EDIT_PAYMENT",
+    "module": "ACCOUNTS",
+    "action": "EDIT_PAYMENT",
+    "label": "Edit Payment",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.DELETE_PAYMENT",
+    "module": "ACCOUNTS",
+    "action": "DELETE_PAYMENT",
+    "label": "Delete Payment",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.VIEW_EXPENSES",
+    "module": "ACCOUNTS",
+    "action": "VIEW_EXPENSES",
+    "label": "View Expenses (Accounts)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.CREATE_EXPENSE",
+    "module": "ACCOUNTS",
+    "action": "CREATE_EXPENSE",
+    "label": "Log Expense (Accounts)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.EDIT_EXPENSE",
+    "module": "ACCOUNTS",
+    "action": "EDIT_EXPENSE",
+    "label": "Edit Expense (Accounts)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.DELETE_EXPENSE",
+    "module": "ACCOUNTS",
+    "action": "DELETE_EXPENSE",
+    "label": "Delete Expense (Accounts)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.VIEW_INVOICE",
+    "module": "ACCOUNTS",
+    "action": "VIEW_INVOICE",
+    "label": "View Invoices (Accounts)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.CREATE_INVOICE",
+    "module": "ACCOUNTS",
+    "action": "CREATE_INVOICE",
+    "label": "Create Invoice (Accounts)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.EDIT_INVOICE",
+    "module": "ACCOUNTS",
+    "action": "EDIT_INVOICE",
+    "label": "Edit Invoice (Accounts)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.DELETE_INVOICE",
+    "module": "ACCOUNTS",
+    "action": "DELETE_INVOICE",
+    "label": "Delete Invoice (Accounts)",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.VIEW_REPORTS",
+    "module": "ACCOUNTS",
+    "action": "VIEW_REPORTS",
+    "label": "View Accounts Reports",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "ACCOUNTS.MANAGE_FEE",
+    "module": "ACCOUNTS",
+    "action": "MANAGE_FEE",
+    "label": "Manage Professional Fees",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_OVERVIEW.VIEW",
+    "module": "CASE_OVERVIEW",
+    "action": "VIEW",
+    "label": "View Case Overview",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_DOCUMENTS.VIEW",
+    "module": "CASE_DOCUMENTS",
+    "action": "VIEW",
+    "label": "View Case Documents Tab",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_TASKS.VIEW",
+    "module": "CASE_TASKS",
+    "action": "VIEW",
+    "label": "View Case Tasks Tab",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_HEARINGS.VIEW",
+    "module": "CASE_HEARINGS",
+    "action": "VIEW",
+    "label": "View Case Hearings Tab",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_TIMELINE.VIEW",
+    "module": "CASE_TIMELINE",
+    "action": "VIEW",
+    "label": "View Case Hearing Timeline",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_FACTS.VIEW",
+    "module": "CASE_FACTS",
+    "action": "VIEW",
+    "label": "View Case Facts Tab",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_ARGUMENTS.VIEW",
+    "module": "CASE_ARGUMENTS",
+    "action": "VIEW",
+    "label": "View Case Arguments Tab",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": true,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_BILLING_EXPENSES.VIEW",
+    "module": "CASE_BILLING_EXPENSES",
+    "action": "VIEW",
+    "label": "View Case Billing / Expenses Tab",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": true,
+      "JUNIOR_ASSOCIATE": true,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  },
+  {
+    "key": "CASE_ACCOUNTS.VIEW",
+    "module": "CASE_ACCOUNTS",
+    "action": "VIEW",
+    "label": "View Case Accounts Tab",
+    "isCoreAdmin": true,
+    "defaults": {
+      "MANAGING_PARTNER": true,
+      "ASSOCIATE": false,
+      "JUNIOR_ASSOCIATE": false,
+      "OFFICE_STAFF": false,
+      "ACCOUNTS_TEAM": true
+    }
+  }
+]

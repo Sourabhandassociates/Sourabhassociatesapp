@@ -7,7 +7,7 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
-      "/api": "http://localhost:4000",
+      "/api": "https://lavender-cat-108044.hostingersite.com",
     },
   },
 });
