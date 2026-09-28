@@ -1,0 +1,12 @@
+{
+  "name": "saa-law-firm-app",
+  "private": true,
+  "description": "Root workspace tooling (formatting) shared by backend/ and frontend/ — each still has its own package.json and dependencies.",
+  "scripts": {
+    "format": "prettier --write \"backend/src/**/*.ts\" \"backend/tests/**/*.ts\" \"frontend/src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"backend/src/**/*.ts\" \"backend/tests/**/*.ts\" \"frontend/src/**/*.{ts,tsx}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

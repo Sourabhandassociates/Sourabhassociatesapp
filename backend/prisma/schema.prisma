@@ -1,0 +1,1221 @@
+// Phase 1 schema — Authentication & RBAC, Client Management, Case Management,
+// Document Management (upload/tagging/basic versioning), Task Management.
+// Extended per SRD v1.1: Case Notes/Diary (SRD Section 7 CaseTimeline/Note),
+// Hearing Calendar (SRD Section 15.1), and foundational Audit Logs (SRD Section
+// 29), per the Managing Partner's approved "Step 1 — Case Operations" execution
+// order (TODO.md). Later-phase entities (chat, billing, OCR, etc.) are still
+// intentionally NOT modelled yet.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MANAGING_PARTNER
+  ASSOCIATE
+  JUNIOR_ASSOCIATE
+  OFFICE_STAFF
+  ACCOUNTS_TEAM
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SessionStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  BLACKLISTED
+}
+
+enum CaseStatus {
+  INTAKE
+  ACTIVE
+  ON_HOLD
+  CLOSED
+  ARCHIVED
+}
+
+enum DocumentConfidentiality {
+  INTERNAL
+  CLIENT_VISIBLE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+/// Office Announcements communication-system pass (2026-08-12).
+enum AnnouncementPriority {
+  NORMAL
+  IMPORTANT
+  CRITICAL
+}
+
+/// Office Announcements communication-system pass (2026-08-12). ASSOCIATE targets
+/// both ASSOCIATE and JUNIOR_ASSOCIATE users (the SRD's own "Advocates (Associates
+/// and Junior Associates)" grouping, Section 3) — there is no separate audience
+/// option for Junior Associates. There is deliberately no plain "Partner" tier
+/// distinct from MANAGING_PARTNER — the Managing Partner confirmed this app's real
+/// role model has no such role, so offering it as an audience choice would either
+/// duplicate MANAGING_PARTNER or silently target nobody.
+enum AnnouncementAudience {
+  EVERYONE
+  MANAGING_PARTNER
+  ASSOCIATE
+  OFFICE_STAFF
+  ACCOUNTS_TEAM
+  SELECTED_USERS
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+enum NoteVisibility {
+  INTERNAL
+  CLIENT_VISIBLE
+}
+
+enum HearingStatus {
+  SCHEDULED
+  COMPLETED
+}
+
+/// Step 1 revision (Managing Partner review, item 8) — admin-managed dropdown
+/// categories. "Status" (CaseStatus above) deliberately stays a fixed enum per the
+/// Managing Partner's explicit choice; CASE_STAGE is the new, separate, configurable
+/// litigation-stage field (item 4/5).
+enum PicklistCategory {
+  COURT
+  JUDGE
+  CASE_STAGE
+  PRACTICE_AREA
+  CASE_TYPE
+  OPPOSITE_COUNSEL
+  OPPOSITE_PARTY
+  DEPARTMENT
+  HEARING_PURPOSE
+  DOCUMENT_CATEGORY
+  /// Step 4 — replaces the ClientType enum.
+  CLIENT_TYPE
+  /// Milestone 1 (Version 1.0 completion, SRD Section 12) — Contact Directory categories
+  /// (Opposite Advocate/Judge/CA/CS/Expert/Govt Dept/Other).
+  CONTACT_CATEGORY
+  /// Milestone 1 (SRD Section 10.3) — the firm-managed tag vocabulary (GST, NCLT,
+  /// Arbitration, etc.), matching the same free-text-validated-against-Picklist
+  /// convention already used for Case.stage/caseType rather than a separate Tag table.
+  TAG
+  /// Milestone 2 (Version 1.0 completion, SRD Section 16.2) — the firm's own
+  /// out-of-pocket expense categories (Court Fees, Stamp Duty, Travel, etc.).
+  EXPENSE_CATEGORY
+}
+
+/// Milestone 2 (Version 1.0 completion, SRD Section 16.1). Deliberately a fixed enum,
+/// not a Picklist category — these values drive real code paths (which actions are
+/// valid, which role can take them), matching the standing convention's one exception
+/// (business-logic-coupled values stay enums, per README.md).
+enum InvoiceStatus {
+  DRAFT
+  APPROVED
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+
+/// Step 3 — Enterprise Role & Permission Management (SRD Section 8a). An individual
+/// employee override's effect on a permission: GRANT overrides a `false` role default
+/// to allowed; REVOKE overrides a `true` role default to denied. See
+/// STEP3_ROLE_PERMISSION_DESIGN.md Section 2 for the full evaluation order.
+enum PermissionEffect {
+  GRANT
+  REVOKE
+}
+
+/// ACCOUNTS module (2026-08-14). A fixed, small set — matches the spec's exact
+/// list — used by both AccountsPayment.mode and the new Expense.paymentMode.
+enum PaymentMode {
+  CASH
+  UPI
+  BANK_TRANSFER
+  CHEQUE
+  CARD
+  OTHER
+}
+
+/// Internal firm staff — SRD Section 3 (Managing Partner, Associate, Junior Associate, Office Staff, Accounts Team)
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  /// Milestone 4 (Version 1.0 completion, SRD Section 28 — "MFA (mandatory for
+  /// Partner/Accounts)"). TOTP-based (RFC 6238) — no third-party SMS/email provider
+  /// needed, unlike Notifications' Email/SMS channels (Milestone 3), so this one is
+  /// fully implementable in this environment. `mfaSecretEncrypted` is the TOTP shared
+  /// secret, AES-256-GCM encrypted at rest with a server-side key (`env.mfaEncryptionKey`)
+  /// rather than stored in the clear — unlike `passwordHash`, this value must be
+  /// decryptable (TOTP verification needs the raw secret), so encryption, not hashing.
+  /// `mfaBackupCodesHashed` are one-time recovery codes, hashed the same way passwords
+  /// are (never stored/compared in the clear).
+  mfaEnabled           Boolean  @default(false)
+  mfaSecretEncrypted   String?
+  mfaBackupCodesHashed String[]
+
+  sessions                 UserSession[]
+  partnerCases             Case[]                   @relation("CasePartner")
+  /// Facts & Arguments case sections (2026-08-18).
+  factsUpdatedCases        Case[]                   @relation("CaseFactsUpdatedBy")
+  argumentsUpdatedCases    Case[]                   @relation("CaseArgumentsUpdatedBy")
+  advocateOnCases          CaseAdvocate[]
+  uploadedDocuments        DocumentVersion[]
+  createdDocuments         Document[]               @relation("DocumentCreatedBy")
+  tasksAssignedToMe        Task[]                   @relation("TaskAssignee")
+  tasksAssignedByMe        Task[]                   @relation("TaskAssignedBy")
+  caseNotes                CaseNote[]
+  hearingsScheduled        Hearing[]                @relation("HearingCreatedBy")
+  auditLogEntries          AuditLog[]
+  /// Step 2 — Soft Delete & Recycle Bin (SRD Section 27): who soft-deleted each record.
+  deletedCases             Case[]                   @relation("CaseDeletedBy")
+  deletedClients           Client[]                 @relation("ClientDeletedBy")
+  deletedDocuments         Document[]               @relation("DocumentDeletedBy")
+  deletedTasks             Task[]                   @relation("TaskDeletedBy")
+  /// Step 3 — Enterprise Role & Permission Management (SRD Section 8a).
+  rolePermissionEdits      RolePermission[]         @relation("RolePermissionUpdatedBy")
+  permissionOverrides      UserPermissionOverride[] @relation("PermissionOverrideUser")
+  permissionOverridesSet   UserPermissionOverride[] @relation("PermissionOverrideSetBy")
+  /// Milestone 1 (Version 1.0 completion) — Contact Directory + Advanced Conflict Check.
+  createdContacts          Contact[]                @relation("ContactCreatedBy")
+  deletedContacts          Contact[]                @relation("ContactDeletedBy")
+  conflictChecksResolved   ConflictCheckLog[]       @relation("ConflictCheckOverriddenBy")
+  /// Milestone 2 (Version 1.0 completion, SRD Section 16) — Billing & Invoicing.
+  timeLogs                 TimeLog[]
+  expensesIncurred         Expense[]                @relation("ExpenseIncurredBy")
+  expensesDeleted          Expense[]                @relation("ExpenseDeletedBy")
+  invoicesCreated          Invoice[]                @relation("InvoiceCreatedBy")
+  invoicesApproved         Invoice[]                @relation("InvoiceApprovedBy")
+  paymentsRecorded         Payment[]                @relation("PaymentRecordedBy")
+  /// Milestone 3 (Version 1.0 completion, SRD Section 23) — Global Search history.
+  recentSearches           RecentSearch[]
+  /// Milestone 3 (Version 1.0 completion, SRD Section 17) — Notifications & Reminders.
+  notifications            Notification[]
+  /// Milestone 4 (Version 1.0 completion, SRD Section 24) — Admin/Customization.
+  announcementsCreated     Announcement[]           @relation("AnnouncementCreatedBy")
+  firmProfileEdits         FirmProfile[]            @relation("FirmProfileUpdatedBy")
+  customFieldDefsCreated   CustomFieldDefinition[]  @relation("CustomFieldDefCreatedBy")
+  /// ACCOUNTS module (2026-08-14).
+  professionalFeesCreated  ProfessionalFee[]        @relation("ProfessionalFeeCreatedBy")
+  professionalFeesDeleted  ProfessionalFee[]        @relation("ProfessionalFeeDeletedBy")
+  accountsPaymentsRecorded AccountsPayment[]        @relation("AccountsPaymentRecordedBy")
+  accountsPaymentsDeleted  AccountsPayment[]        @relation("AccountsPaymentDeletedBy")
+}
+
+/// SRD Section 9 — Login & Session Management (per-device session/refresh-token tracking)
+model UserSession {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id])
+  deviceInfo       String
+  refreshTokenHash String
+  status           SessionStatus @default(ACTIVE)
+  revokedReason    String?
+  createdAt        DateTime      @default(now())
+  lastActiveAt     DateTime      @default(now())
+
+  @@index([userId])
+}
+
+/// SRD Section 11 — Client Management (incl. auto-generated Client ID, Section 11.1)
+model Client {
+  id           String       @id @default(cuid())
+  clientId     String       @unique
+  name         String
+  /// Step 4 — migrated from the ClientType enum to the Picklist system
+  /// (PicklistCategory.CLIENT_TYPE), matching Case.stage/caseType/etc.'s
+  /// existing free-text-validated-by-UI-curation convention.
+  /// Nullable as of the Client-module optional-fields pass (2026-08-06) — only
+  /// `name` is mandatory at creation; Type/Email/Phone/Address may all be filled
+  /// in later via edit.
+  type         String?
+  email        String?      @unique
+  phone        String?
+  address      String?
+  passwordHash String
+  status       ClientStatus @default(ACTIVE)
+
+  /// Client Portal Permissions (2026-08-14) — three independent, Managing-Partner-
+  /// controlled toggles gating what this client can see in the Client Portal.
+  /// Defaults match the Managing Partner's spec exactly: Cases and Hearing History
+  /// ON for every new client, Documents OFF. For a client to actually see a given
+  /// document, portalDocumentsEnabled must be true AND the document's own
+  /// `confidentiality` must be CLIENT_VISIBLE AND it must belong to one of this
+  /// client's own cases — this flag is only one of those three conditions.
+  portalCasesEnabled          Boolean @default(true)
+  portalHearingHistoryEnabled Boolean @default(true)
+  portalDocumentsEnabled      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Step 2 — Soft Delete & Recycle Bin (SRD Section 27).
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("ClientDeletedBy", fields: [deletedById], references: [id])
+
+  cases            CaseClient[]
+  sessions         ClientSession[]
+  /// Milestone 2 (Version 1.0 completion, SRD Section 16.1).
+  invoices         Invoice[]
+  /// Contacts redesign pass (2026-08-07b) — 1:1, auto-created/kept in sync by
+  /// clients.service.ts (see Contact.clientId's doc comment). Nullable purely
+  /// because Prisma models the relation that way; in practice every non-deleted
+  /// Client has exactly one.
+  contact          Contact?
+  /// ACCOUNTS module (2026-08-14). documents = client-level Documents (caseId
+  /// null) — e.g. a receipt for a client-level AccountsPayment with no case.
+  documents        Document[]
+  professionalFees ProfessionalFee[] @relation("ClientProfessionalFees")
+  accountsPayments AccountsPayment[] @relation("ClientAccountsPayments")
+  /// ACCOUNTS Overview/Expenses completion pass (2026-08-15) — standalone
+  /// Client-level expenses (Expense.clientId, caseId null).
+  expenses         Expense[]
+
+  @@index([deletedAt])
+  /// Milestone 4 (Version 1.0 completion) — IMPROVEMENTS.md #17.
+  @@index([status])
+}
+
+/// SRD Section 9 — Login & Session Management, client-side (Client logs in via Client ID, Section 3.6 / 11.1)
+model ClientSession {
+  id               String        @id @default(cuid())
+  clientId         String
+  client           Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deviceInfo       String
+  refreshTokenHash String
+  status           SessionStatus @default(ACTIVE)
+  revokedReason    String?
+  createdAt        DateTime      @default(now())
+  lastActiveAt     DateTime      @default(now())
+
+  @@index([clientId])
+}
+
+/// SRD Section 10 — Case Management (incl. auto-generated Matter Number, Section 10.1)
+model Case {
+  id              String     @id @default(cuid())
+  matterNumber    String     @unique
+  courtCaseNumber String?
+  /// New Case form simplification (2026-08-11) — was required; the New Case screen
+  /// no longer collects this, so it must be creatable blank. Matter Number remains
+  /// the one guaranteed-present identifier for a case regardless of title.
+  title           String?
+  /// New Case form simplification (2026-08-11) — was required; same rationale as
+  /// `title` above.
+  practiceArea    String?
+  status          CaseStatus @default(INTAKE)
+  filingDate      DateTime?
+  courtName       String?
+  /// New Case form simplification (2026-08-11) — new field ("Court No." on the New
+  /// Case form), distinct from `Hearing.courtHall` which is per-hearing, not per-case.
+  courtNumber     String?
+  jurisdiction    String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  /// Step 1 revision (Managing Partner review, items 4/5/8) — litigation stage,
+  /// separate from the fixed `status` lifecycle above, configurable via Admin Settings.
+  stage           String?
+  description     String?
+  caseType        String?
+  oppositeCounsel String?
+  oppositeParty   String?
+  department      String?
+
+  partnerId String
+  partner   User   @relation("CasePartner", fields: [partnerId], references: [id])
+
+  /// Step 2 — Soft Delete & Recycle Bin (SRD Section 27).
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("CaseDeletedBy", fields: [deletedById], references: [id])
+
+  /// Facts & Arguments case sections (2026-08-18) — sanitized rich-text HTML,
+  /// one current value per Case (no versioning), matching `description` above's
+  /// existing "plain scalar directly on Case" precedent rather than a new
+  /// normalized/versioned entity. `factsUpdatedAt`/`factsUpdatedById` (and the
+  /// Arguments equivalents) are the minimal "who/when" audit trail the feature
+  /// asks for, layered on top of the full history already captured in AuditLog
+  /// via CASE_FACTS_UPDATED/CASE_ARGUMENTS_UPDATED entries.
+  facts                String?
+  factsUpdatedAt       DateTime?
+  factsUpdatedById     String?
+  factsUpdatedBy       User?     @relation("CaseFactsUpdatedBy", fields: [factsUpdatedById], references: [id])
+  arguments            String?
+  argumentsUpdatedAt   DateTime?
+  argumentsUpdatedById String?
+  argumentsUpdatedBy   User?     @relation("CaseArgumentsUpdatedBy", fields: [argumentsUpdatedById], references: [id])
+
+  clients          CaseClient[]
+  advocates        CaseAdvocate[]
+  documents        Document[]
+  tasks            Task[]
+  notes            CaseNote[]
+  hearings         Hearing[]
+  /// Milestone 1 (Version 1.0 completion, SRD Section 10.3/12).
+  tags             CaseTag[]
+  contacts         ContactMatter[]
+  /// Milestone 2 (Version 1.0 completion, SRD Section 16).
+  timeLogs         TimeLog[]
+  expenses         Expense[]
+  invoices         Invoice[]
+  /// ACCOUNTS module (2026-08-14).
+  professionalFees ProfessionalFee[] @relation("CaseProfessionalFees")
+  accountsPayments AccountsPayment[] @relation("CaseAccountsPayments")
+
+  @@index([deletedAt])
+  /// Milestone 4 (Version 1.0 completion) — IMPROVEMENTS.md #17.
+  @@index([partnerId])
+  @@index([status])
+  @@index([practiceArea])
+}
+
+/// Milestone 1 (Version 1.0 completion, SRD Section 10.3 — Tagging System). The tag
+/// vocabulary itself lives in PicklistValue (category TAG, Section 24's standing
+/// convention); this is just the Case <-> tag-value many-to-many, matching the
+/// free-text-validated-against-Picklist pattern already used for Case.stage/caseType
+/// rather than introducing a separate typed Tag entity.
+model CaseTag {
+  id        String   @id @default(cuid())
+  caseId    String
+  tag       String
+  createdAt DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, tag])
+  @@index([caseId])
+}
+
+/// Case <-> Client many-to-many, with the client's role in the matter (plaintiff/defendant/etc.)
+model CaseClient {
+  id        String @id @default(cuid())
+  caseId    String
+  clientId  String
+  partyRole String
+
+  /// onDelete: Cascade on both sides — this join row is meaningless once either its Case
+  /// or its Client is permanently deleted (Step 2, Recycle Bin permanent-delete path).
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, clientId])
+}
+
+/// Case <-> Advocate (Associate/Junior Associate) many-to-many, beyond the single owning Partner
+model CaseAdvocate {
+  id     String @id @default(cuid())
+  caseId String
+  userId String
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([caseId, userId])
+  /// Milestone 4 (Version 1.0 completion) — IMPROVEMENTS.md #17.
+  @@index([userId])
+}
+
+/// SRD Section 13 (Phase 1 scope: upload, tagging, basic versioning — no folder tree/OCR/approval yet)
+model Document {
+  id              String                  @id @default(cuid())
+  /// Nullable as of the ACCOUNTS module pass (2026-08-14) — mirrors the existing
+  /// Invoice.caseId precedent — to support a client-level document (e.g. a receipt
+  /// for a client-level AccountsPayment with no case at all). Every pre-existing
+  /// caller of uploadDocument() still always supplies caseId; clientId is the new
+  /// alternative path. Enforced in the service layer (caseId OR clientId, not both
+  /// null), not a DB constraint — matches this codebase's existing style.
+  caseId          String?
+  clientId        String?
+  title           String
+  category        String
+  confidentiality DocumentConfidentiality @default(INTERNAL)
+  createdById     String
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  /// Step 2 — Soft Delete & Recycle Bin (SRD Section 27).
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("DocumentDeletedBy", fields: [deletedById], references: [id])
+
+  case                   Case?             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  client                 Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy              User              @relation("DocumentCreatedBy", fields: [createdById], references: [id])
+  versions               DocumentVersion[]
+  /// ACCOUNTS module (2026-08-14) — optional receipt link back from the entity
+  /// that uses this document as its proof/receipt.
+  accountsPaymentReceipt AccountsPayment?  @relation("AccountsPaymentReceipt")
+  expenseReceipt         Expense?          @relation("ExpenseReceiptDocument")
+
+  @@index([caseId])
+  @@index([clientId])
+  @@index([deletedAt])
+}
+
+/// Basic versioning: each re-upload creates a new version, prior versions retained
+model DocumentVersion {
+  id            String   @id @default(cuid())
+  documentId    String
+  versionNumber Int
+  fileName      String
+  storagePath   String
+  mimeType      String
+  sizeBytes     Int
+  uploadedById  String
+  uploadedAt    DateTime @default(now())
+
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  uploadedBy User     @relation(fields: [uploadedById], references: [id])
+
+  @@unique([documentId, versionNumber])
+}
+
+/// SRD Section 14 — Task Management
+model Task {
+  id           String       @id @default(cuid())
+  caseId       String
+  title        String
+  description  String?
+  priority     TaskPriority @default(MEDIUM)
+  status       TaskStatus   @default(PENDING)
+  dueDate      DateTime?
+  assignedToId String
+  assignedById String
+  /// Step 1 revision (Managing Partner review, item 3) — set when status transitions
+  /// to COMPLETED, cleared if it moves away again; backs the Employee Task Audit's
+  /// on-time/productivity stats.
+  completedAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  /// Step 2 — Soft Delete & Recycle Bin (SRD Section 27).
+  deletedAt   DateTime?
+  deletedById String?
+  deletedBy   User?     @relation("TaskDeletedBy", fields: [deletedById], references: [id])
+
+  case       Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  assignedTo User      @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  assignedBy User      @relation("TaskAssignedBy", fields: [assignedById], references: [id])
+  /// Milestone 2 (Version 1.0 completion, SRD Section 16.1) — optional link from a
+  /// logged time entry back to the task it was worked on.
+  timeLogs   TimeLog[]
+
+  @@index([caseId])
+  @@index([assignedToId])
+  @@index([deletedAt])
+  /// Milestone 4 (Version 1.0 completion) — IMPROVEMENTS.md #17.
+  @@index([status])
+  @@index([dueDate])
+}
+
+/// Backing store for atomic sequence generation of Client ID (SA-CLI-000001) and
+/// Matter Number (SA-MAT-2026-0001) — SRD Sections 10.1 and 11.1
+model SequenceCounter {
+  key   String @id
+  value Int    @default(0)
+}
+
+/// SRD Section 7 "CaseTimeline/Note" / Section 4 "Internal notes & case history/timeline"
+/// — the Case Notes/Diary. Append-only (no edit/delete): a diary is a historical record,
+/// not a document to revise. Chronological order comes from createdAt.
+model CaseNote {
+  id         String         @id @default(cuid())
+  caseId     String
+  authorId   String
+  content    String
+  visibility NoteVisibility @default(INTERNAL)
+  createdAt  DateTime       @default(now())
+
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([caseId])
+}
+
+/// SRD Section 15.1 — Hearing Calendar. Each row is one calendar entry. Recording an
+/// outcome marks this row COMPLETED; if a next hearing date is given, a new SCHEDULED
+/// row is created for it (hearings.service.ts) — that new row IS the "auto-updated next
+/// hearing," not a denormalized field prone to drifting out of sync with reality.
+model Hearing {
+  id           String        @id @default(cuid())
+  caseId       String
+  hearingDate  DateTime
+  courtName    String?
+  /// Step 4 — Cause List: court hall/room/number, free text (matches
+  /// judgeName/courtCaseNumber precedent — not a Picklist category).
+  courtHall    String?
+  judgeName    String?
+  purpose      String?
+  outcomeNotes String?
+  status       HearingStatus @default(SCHEDULED)
+  createdById  String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  case      Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  createdBy User @relation("HearingCreatedBy", fields: [createdById], references: [id])
+
+  @@index([caseId])
+  @@index([hearingDate])
+}
+
+/// Step 1 revision (Managing Partner review, item 8) — a single reusable table backing
+/// every admin-managed dropdown (Court, Judge, Case Stage, Practice Area, Case Type,
+/// Opposite Counsel, Opposite Party, Department, Hearing Purpose), rather than one
+/// lookup table per category, so a future category needs no schema change.
+/// Deactivating (not deleting) a value keeps historical records referencing it intact
+/// while removing it from new-entry dropdowns.
+model PicklistValue {
+  id        String           @id @default(cuid())
+  category  PicklistCategory
+  value     String
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@unique([category, value])
+  @@index([category])
+}
+
+/// Milestone 1 (Version 1.0 completion, SRD Section 12 — Contact Directory). Everyone
+/// the firm deals with outside its own staff and clients — Opposite Advocates, Judges,
+/// CAs, CSs, Experts, Government Departments, and other professional contacts. Clients
+/// are cross-referenced from Client Management, never duplicated here.
+model Contact {
+  id           String   @id @default(cuid())
+  name         String
+  /// Free text, validated against the CONTACT_CATEGORY Picklist category by the service
+  /// layer — same convention as Client.type/Case.stage rather than a DB enum.
+  category     String
+  organization String?
+  designation  String?
+  email        String?
+  phone        String?
+  notes        String?
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  /// Contacts redesign pass (2026-08-07b) — the Contacts module is now (a) a
+  /// read-only directory mirror of every Client's own contact info, auto-created and
+  /// kept in sync by clients.service.ts whenever a Client is created/edited (Client
+  /// is the single source of truth — never edited here), plus (b) a separately
+  /// managed list of non-client professional contacts (Judges, Opposing Counsel,
+  /// CAs, vendors). `clientId` is therefore 1:1 with Client (`@unique`) and is ONLY
+  /// ever set by that Client sync logic, never through manual contact creation — a
+  /// null clientId means this is a manually-managed, non-client contact. Visibility
+  /// of a client-linked row when its Client is soft-deleted is governed by a live
+  /// join to `client.deletedAt` (contacts.service.ts's `listClientDirectory`), not a
+  /// separately-copied flag, so there is nothing to fall out of sync on Client
+  /// soft-delete/restore; permanent deletion of a Client cascades to its Contact row
+  /// (`onDelete: Cascade` below) since it would otherwise be an orphaned FK.
+  clientId String? @unique
+
+  /// Soft-delete (SRD Section 27) — applies to manually-managed (non-client)
+  /// contacts only; a client-linked Contact's `deletedAt` is always null (its
+  /// lifecycle is governed by its Client, see `clientId` above).
+  deletedAt   DateTime?
+  deletedById String?
+
+  createdBy User            @relation("ContactCreatedBy", fields: [createdById], references: [id])
+  deletedBy User?           @relation("ContactDeletedBy", fields: [deletedById], references: [id])
+  client    Client?         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  matters   ContactMatter[]
+
+  @@index([deletedAt])
+  @@index([category])
+}
+
+/// Contact <-> Case many-to-many ("linked matter ids", SRD Section 7's Contact entity).
+model ContactMatter {
+  id        String @id @default(cuid())
+  contactId String
+  caseId    String
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  case    Case    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, caseId])
+}
+
+/// Milestone 1 (Version 1.0 completion, SRD Section 10.2 — Advanced Conflict Check /
+/// Section 7's ConflictCheckLog). One row per acknowledged conflict at Client or Contact
+/// creation — a name with no possible match never produces a row (nothing to log).
+/// Scope note: fuzzy-matches the entered name against existing Client names, Contact
+/// names, and already-used Opposite Party/Opposite Counsel Picklist values — the actual
+/// entities this application tracks. Director/Partner/Shareholder/Company-Name records
+/// named in the SRD's narrative aren't a distinct tracked entity anywhere in this
+/// schema, so they aren't part of the checked set (there's nothing to check them
+/// against without inventing an entity the SRD didn't otherwise specify).
+model ConflictCheckLog {
+  id              String   @id @default(cuid())
+  triggerType     String
+  triggerEntityId String
+  searchedName    String
+  /// Serialized ConflictMatch[] (type/id/label/confidence) — see utils/conflictCheck.ts.
+  matches         Json
+  reason          String
+  overriddenById  String
+  createdAt       DateTime @default(now())
+
+  overriddenBy User @relation("ConflictCheckOverriddenBy", fields: [overriddenById], references: [id])
+
+  @@index([triggerType, triggerEntityId])
+}
+
+/// Milestone 2 (Version 1.0 completion, SRD Section 16.1 — Time Tracking). Logged
+/// against a case, optionally a specific task; `invoiced` flips true once a line item
+/// on a real invoice references it, so it's never double-billed.
+model TimeLog {
+  id          String   @id @default(cuid())
+  caseId      String
+  userId      String
+  taskId      String?
+  date        DateTime
+  hours       Float
+  billable    Boolean  @default(true)
+  description String?
+  invoiced    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  case     Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id])
+  task     Task?            @relation(fields: [taskId], references: [id])
+  lineItem InvoiceLineItem?
+
+  @@index([caseId])
+  @@index([userId])
+}
+
+/// Milestone 2 (Version 1.0 completion, SRD Section 16.2 — Expense Management). The
+/// firm's own out-of-pocket costs per matter, separate from client invoicing (though
+/// billable-to-client ones can still appear on an invoice as a line item). Soft-
+/// deletable — the SRD's own Recycle Bin section (27) names Expenses as a candidate
+/// entity, so this follows the same pattern as Contact (Milestone 1) rather than
+/// inventing a different one.
+model Expense {
+  id               String   @id @default(cuid())
+  /// Nullable as of the ACCOUNTS Overview/Expenses completion pass (2026-08-15) —
+  /// mirrors the exact Document.caseId precedent (ACCOUNTS module, 2026-08-14) — to
+  /// support General/Firm expenses (caseId null, clientId null) and standalone
+  /// Client-level expenses (caseId null, clientId set), neither of which the
+  /// original Case → Billing → Expenses flow needed. Every pre-existing caller
+  /// (expenses.service.ts, the Case Billing tab) still always supplies caseId.
+  caseId           String?
+  /// ACCOUNTS Overview/Expenses completion pass (2026-08-15) — set only for a
+  /// standalone Client-level expense (caseId null). A case-level expense's client(s)
+  /// are derived by joining through `case.clients` (a case can have more than one),
+  /// never denormalized onto this row — avoids an ambiguous "which client" for a
+  /// multi-client case. General/firm expenses leave both caseId and clientId null.
+  clientId         String?
+  category         String
+  amount           Float
+  date             DateTime
+  incurredById     String
+  receiptReference String?
+  /// ACCOUNTS Overview/Expenses completion pass (2026-08-15) — free-text notes,
+  /// matching the Managing Partner's case-expense-form field list; the pre-existing
+  /// Case → Billing → Expenses flow doesn't collect this (stays null there).
+  description      String?
+  billableToClient Boolean  @default(true)
+  invoiced         Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  /// ACCOUNTS module (2026-08-14) — additive, nullable fields matching the spec's
+  /// exact Expense-record field list (Payment Mode, Paid To/Vendor, a real
+  /// receipt upload alongside the pre-existing free-text receiptReference above).
+  /// Populated when an expense is logged via Accounts; left null for expenses
+  /// logged via the pre-existing Case → Billing → Expenses flow, which is
+  /// unchanged and doesn't collect these.
+  paymentMode       PaymentMode?
+  vendor            String?
+  receiptDocumentId String?      @unique
+
+  deletedAt   DateTime?
+  deletedById String?
+
+  case            Case?            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  client          Client?          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  incurredBy      User             @relation("ExpenseIncurredBy", fields: [incurredById], references: [id])
+  deletedBy       User?            @relation("ExpenseDeletedBy", fields: [deletedById], references: [id])
+  lineItem        InvoiceLineItem?
+  receiptDocument Document?        @relation("ExpenseReceiptDocument", fields: [receiptDocumentId], references: [id])
+
+  @@index([caseId])
+  @@index([clientId])
+  @@index([deletedAt])
+  @@index([date])
+}
+
+/// Milestone 2 (Version 1.0 completion, SRD Section 16.1 — Billing & Invoicing).
+/// Draft → Partner Review/Approve → Sent, then payments recorded against it until
+/// fully paid. `subtotal`/`total` are stored (not computed on read) so a historical
+/// invoice's amount never drifts if a line item were ever edited after issuance —
+/// in practice line items aren't editable once the invoice leaves DRAFT.
+model Invoice {
+  id                 String        @id @default(cuid())
+  invoiceNumber      String        @unique
+  /// Nullable as of the invoice-module completion pass (2026-08-06) — a "general"
+  /// invoice (billed to a client directly, not tied to any one matter) is now
+  /// supported from the dedicated Create Invoice screen; every pre-existing
+  /// Case-Billing-tab invoice still always supplies one.
+  caseId             String?
+  clientId           String
+  status             InvoiceStatus @default(DRAFT)
+  issueDate          DateTime      @default(now())
+  dueDate            DateTime?
+  subtotal           Float
+  /// Tax/discount (invoice-module completion, 2026-08-06) — a single combined
+  /// rate/amount, not a per-line breakdown; `taxRate` is the percentage entered at
+  /// creation, `taxAmount` the computed amount at that moment, stored (not
+  /// recomputed on read) for the same "never drifts after issuance" reason
+  /// `subtotal`/`total` already are. `discountType` is "PERCENTAGE" or "FLAT".
+  taxRate            Float         @default(0)
+  taxAmount          Float         @default(0)
+  discountType       String?
+  discountValue      Float         @default(0)
+  discountAmount     Float         @default(0)
+  notes              String?
+  termsAndConditions String?
+  total              Float
+  createdById        String
+  approvedById       String?
+  approvedAt         DateTime?
+  sentAt             DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  case       Case?             @relation(fields: [caseId], references: [id])
+  client     Client            @relation(fields: [clientId], references: [id])
+  createdBy  User              @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  approvedBy User?             @relation("InvoiceApprovedBy", fields: [approvedById], references: [id])
+  lineItems  InvoiceLineItem[]
+  payments   Payment[]
+
+  @@index([caseId])
+  @@index([clientId])
+  @@index([status])
+}
+
+/// A billable line — either aggregated from a TimeLog/Expense (one-to-one, so the
+/// same entry can never be billed twice) or a free-form manual line (both source ids null).
+model InvoiceLineItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Float
+  rate        Float
+  amount      Float
+  timeLogId   String? @unique
+  expenseId   String? @unique
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  timeLog TimeLog? @relation(fields: [timeLogId], references: [id])
+  expense Expense? @relation(fields: [expenseId], references: [id])
+
+  @@index([invoiceId])
+}
+
+/// Milestone 2 — payment tracking against an invoice (supports partial payments;
+/// `Invoice.status` derives PARTIALLY_PAID/PAID from the sum of these rows).
+model Payment {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  amount       Float
+  paidAt       DateTime @default(now())
+  method       String?
+  recordedById String
+  createdAt    DateTime @default(now())
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  recordedBy User    @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([invoiceId])
+}
+
+/// ACCOUNTS module (2026-08-14). A "Professional Fee" is a simple, standalone
+/// billing ledger entry — deliberately distinct from the Invoice lifecycle above
+/// (no DRAFT/APPROVED/SENT states, no line items derived from TimeLog/Expense).
+/// clientId is always required; caseId is optional (a fee can be raised against a
+/// client generally, with no specific case). When caseId IS set, the service
+/// layer validates clientId is actually one of that case's CaseClient rows (a
+/// Case can have multiple clients). Outstanding/Overdue/Due Soon are never
+/// stored — always derived at read time from amount minus linked
+/// AccountsPayment rows (see accounts/accountsQueries.ts).
+model ProfessionalFee {
+  id            String    @id @default(cuid())
+  clientId      String
+  caseId        String?
+  amount        Decimal   @db.Decimal(12, 2)
+  description   String?
+  dueDate       DateTime?
+  agreementDate DateTime?
+  remarks       String?
+  createdById   String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  /// Soft-delete — data preservation only, not a Recycle Bin entity (no restore
+  /// UI requested for this module).
+  deletedAt   DateTime?
+  deletedById String?
+
+  client    Client            @relation("ClientProfessionalFees", fields: [clientId], references: [id])
+  case      Case?             @relation("CaseProfessionalFees", fields: [caseId], references: [id])
+  createdBy User              @relation("ProfessionalFeeCreatedBy", fields: [createdById], references: [id])
+  deletedBy User?             @relation("ProfessionalFeeDeletedBy", fields: [deletedById], references: [id])
+  payments  AccountsPayment[] @relation("FeePayments")
+
+  @@index([clientId])
+  @@index([caseId])
+  @@index([dueDate])
+  @@index([deletedAt])
+}
+
+/// ACCOUNTS module (2026-08-14). Named AccountsPayment, not Payment — Payment
+/// (above) is invoice-only and has no Client/Case FK at all; this is a wholly
+/// separate ledger. clientId is always required (even for a case-level payment,
+/// denormalized off the fee/case for query simplicity). caseId null = a
+/// client-level payment, not allocated to any case. caseId set + feeId null = a
+/// case-level payment, counted in that case's total received but not applied to
+/// any one fee's outstanding. feeId set = directly reduces that fee's
+/// outstanding — the service layer derives clientId/caseId from the fee itself
+/// whenever feeId is supplied, never trusting three independently-supplied FKs.
+model AccountsPayment {
+  id                String      @id @default(cuid())
+  clientId          String
+  caseId            String?
+  feeId             String?
+  amount            Decimal     @db.Decimal(12, 2)
+  paymentDate       DateTime    @default(now())
+  mode              PaymentMode
+  referenceNumber   String?
+  remarks           String?
+  receiptDocumentId String?     @unique
+  recordedById      String
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  deletedAt   DateTime?
+  deletedById String?
+
+  client          Client           @relation("ClientAccountsPayments", fields: [clientId], references: [id])
+  case            Case?            @relation("CaseAccountsPayments", fields: [caseId], references: [id])
+  fee             ProfessionalFee? @relation("FeePayments", fields: [feeId], references: [id])
+  receiptDocument Document?        @relation("AccountsPaymentReceipt", fields: [receiptDocumentId], references: [id])
+  recordedBy      User             @relation("AccountsPaymentRecordedBy", fields: [recordedById], references: [id])
+  deletedBy       User?            @relation("AccountsPaymentDeletedBy", fields: [deletedById], references: [id])
+
+  @@index([clientId])
+  @@index([caseId])
+  @@index([feeId])
+  @@index([paymentDate])
+  @@index([deletedAt])
+}
+
+/// SRD Section 29 — foundational Audit Log (Phase 2 item, built now because Step 2's
+/// Recycle Bin and Step 3's permission changes both require it to already exist).
+/// Deliberately generic (entityType/entityId/action as strings) rather than one table
+/// per audited entity, so new modules can start logging to it without a schema change.
+///
+/// Expanded into a complete firm-wide audit trail (2026-08-13): userRole/entityName/
+/// changes/ipAddress/sessionId are all additive and nullable — existing rows and any
+/// write that doesn't supply them (e.g. a plain create/delete action with no diff) are
+/// unaffected. userRole is captured from the actor's JWT role at write time, not looked
+/// up from User.role, because a later role change must never rewrite what a past
+/// action's role actually was. sessionId has no FK — UserSession/ClientSession are two
+/// different tables and a session may already be revoked/deleted by the time this row
+/// is read, so it's stored as a raw id, not a relation.
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userRole   String?
+  action     String
+  entityType String
+  entityId   String?
+  entityName String?
+  details    String?
+  changes    Json?
+  ipAddress  String?
+  sessionId  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([action])
+}
+
+/// Milestone 3 (Version 1.0 completion, SRD Section 17 — Notifications & Reminders).
+/// In-app channel only for Version 1.0 — Email/SMS/native-push need a third-party
+/// provider (SMTP/SendGrid, Twilio, FCM/APNs) this deployment has no credentials for,
+/// and native push has no app to receive it yet (native mobile is itself deferred).
+/// Documented scope narrowing, not a silent omission — see CHANGELOG.md.
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  type       String
+  message    String
+  entityType String?
+  entityId   String?
+  isRead     Boolean   @default(false)
+  /// Office Announcements communication-system pass (2026-08-12) — when `isRead`
+  /// flips true, so Announcement Read Tracking (Section 24/8) can show "read on
+  /// <date/time>" per recipient, not just a boolean.
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
+/// Milestone 3 (Version 1.0 completion, SRD Section 23 — Global Search). Per-user
+/// recent-search history, most-recent-first. Deliberately not deduplicated server-side
+/// (a repeated search is still a real recent search) — the UI can dedupe on display if
+/// it wants a cleaner list.
+model RecentSearch {
+  id        String   @id @default(cuid())
+  userId    String
+  query     String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+/// Step 3 — Enterprise Role & Permission Management (SRD Section 8a). See
+/// STEP3_ROLE_PERMISSION_DESIGN.md Section 1 for the full design rationale. The
+/// catalogue of everything that *can* be permitted — seeded by the seed script
+/// (code-defined, reviewed like any other schema decision), not created through the
+/// UI. Who holds which permission (RolePermission/UserPermissionOverride below) is
+/// what the UI configures.
+model Permission {
+  id          String   @id @default(cuid())
+  /// Namespaced `MODULE.ACTION`, e.g. "CASES.VIEW_ALL" — see design doc Section 3.1.
+  key         String   @unique
+  /// Denormalized copy of the key's module segment — avoids parsing `key` to group
+  /// the Role Defaults matrix UI by module.
+  module      String
+  /// Denormalized copy of the key's action segment (VIEW_ALL, CREATE, EDIT, ...).
+  action      String
+  label       String
+  description String?
+  /// True for the VIEW_ALL/VIEW_ASSIGNED/VIEW_OWN triad on a module (design doc
+  /// Section 4) — lets the UI render those three as a linked group, not independent
+  /// checkboxes that could contradict each other.
+  isViewScope Boolean  @default(false)
+  /// True for the 14 permissions covering Manage Users, Manage Permissions, Manage
+  /// Settings, Restore/Recycle Bin, and Audit Logs — the Managing Partner Safety
+  /// guarantee (design doc Section 9.3) is enforced against exactly this flag, not a
+  /// hardcoded list in application code.
+  isCoreAdmin Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+
+  @@index([module])
+}
+
+/// Step 3 — the seeded *default* permission set for each of the five fixed staff
+/// roles. Seeded as a dense matrix — every (role, permission) pair gets a row — so
+/// the Role Defaults screen is a single query, already fully populated (design doc
+/// Section 1.2). Roles stay the existing UserRole enum, not a custom-role table — see
+/// design doc Section 10 (Explicit Non-Goals) for why.
+model RolePermission {
+  id           String   @id @default(cuid())
+  role         UserRole
+  permissionId String
+  granted      Boolean
+  updatedAt    DateTime @updatedAt
+  /// Null only for the initial seed (system-set); every subsequent edit is
+  /// Managing-Partner-attributed (route-gated, design doc Section 9.2).
+  updatedById  String?
+
+  permission Permission @relation(fields: [permissionId], references: [id])
+  updatedBy  User?      @relation("RolePermissionUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([role, permissionId])
+  @@index([role])
+  @@index([permissionId])
+}
+
+/// Step 3 — a per-employee exception to their role's RolePermission default. Sparse
+/// by design (most employees have zero rows here) — SRD Section 8a frames overrides
+/// as the exception, not the rule. Removing an override is a row delete, not a
+/// soft-delete: the event survives permanently in AuditLog (design doc Section 9.4),
+/// so the row itself doesn't need to.
+model UserPermissionOverride {
+  id           String           @id @default(cuid())
+  userId       String
+  permissionId String
+  effect       PermissionEffect
+  /// Mandatory per SRD Section 8a.3 — enforced at the API validation layer, not just
+  /// a UI hint.
+  reason       String
+  setById      String
+  setAt        DateTime         @default(now())
+
+  user       User       @relation("PermissionOverrideUser", fields: [userId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+  setBy      User       @relation("PermissionOverrideSetBy", fields: [setById], references: [id])
+
+  @@unique([userId, permissionId])
+  @@index([userId])
+  @@index([permissionId])
+}
+
+/// Milestone 4 (Version 1.0 completion, SRD Section 24 — "Firm Profile ... Practice
+/// Area Configuration"). Practice Area itself is already a Picklist category (Section
+/// 24, delivered in v1.2); this is the remaining piece — the firm's own identity/
+/// contact details. Modeled as a fixed-id singleton row (`id: "singleton"`) rather than
+/// a settings key-value table, since these fields are genuinely one fixed record, not
+/// an open-ended list.
+model FirmProfile {
+  id                String   @id @default("singleton")
+  firmName          String
+  address           String?
+  phone             String?
+  email             String?
+  gstin             String?
+  /// Billing Settings (invoice-module completion, 2026-08-06, SRD Section 16.1) —
+  /// these "automatically populate every invoice" (read live by the PDF generator
+  /// and the Create Invoice screen's preview, never copied per-invoice) rather than
+  /// being duplicated onto each `Invoice` row. The logo itself has no DB field — it's
+  /// a single canonical file (`backend/src/assets/logo.png` /
+  /// `frontend/public/logo.png`, matching the Branding pass's existing convention),
+  /// uploaded via a dedicated endpoint rather than stored as a path, since there is
+  /// only ever one current logo.
+  pan               String?
+  website           String?
+  bankName          String?
+  accountHolderName String?
+  accountNumber     String?
+  ifsc              String?
+  branch            String?
+  swift             String?
+  upiId             String?
+  updatedAt         DateTime @updatedAt
+  updatedById       String?
+
+  updatedBy User? @relation("FirmProfileUpdatedBy", fields: [updatedById], references: [id])
+}
+
+/// Milestone 4 (Version 1.0 completion, SRD Section 24/6.15 — "Office Announcements
+/// Composer (Partner/Office Staff)"), surfaced on the Managing Partner/Advocate/Office
+/// Staff dashboards (Section 18.1/18.2/18.4). Deactivating (isActive: false) rather than
+/// deleting keeps historical announcements available for audit without an admin having
+/// to see them on every dashboard forever.
+model Announcement {
+  id              String               @id @default(cuid())
+  title           String
+  body            String
+  isActive        Boolean              @default(true)
+  /// Office Announcements communication-system pass (2026-08-12).
+  priority        AnnouncementPriority @default(NORMAL)
+  audience        AnnouncementAudience @default(EVERYONE)
+  /// Effective-visibility window, both optional. `startDate` in the future or
+  /// `expiryDate` in the past excludes the announcement from every "active" list
+  /// query (computed live on read — this app has no background job scheduler, so
+  /// there is no ticking process that flips `isActive`; the date window is a second,
+  /// independent condition layered on top of the existing manual publish/archive
+  /// flag, not a replacement for it).
+  startDate       DateTime?
+  expiryDate      DateTime?
+  /// Only populated (and only meaningful) when `audience` is SELECTED_USERS — the
+  /// admin's actual selection, persisted here rather than solely inferred from the
+  /// Notification rows it produces, because a draft (Office Staff, isActive: false)
+  /// creates no Notification rows at all until published; without this field, a
+  /// draft's Selected-Users choice would be silently lost by the time a Managing
+  /// Partner later publishes it.
+  selectedUserIds String[]             @default([])
+  createdById     String
+  createdAt       DateTime             @default(now())
+
+  createdBy User @relation("AnnouncementCreatedBy", fields: [createdById], references: [id])
+
+  @@index([isActive, createdAt])
+}
+
+/// Milestone 4 (Version 1.0 completion, SRD Section 24 — "Custom Fields ... add fields
+/// to existing entities via a field-builder UI, no code change"). Scoped to Case only
+/// for Version 1.0 — the entity every prior enhancement request has targeted (Case
+/// Stage, tags, custom attributes) — rather than a fully generic any-entity engine,
+/// which would be substantially more schema/UI surface for a v1 no other module has
+/// asked for yet. `entityType` is still a string column (not hardcoded to "CASE" at
+/// the type level) so a second entity can be added later without a schema change, only
+/// a new value in this column and a UI selector.
+model CustomFieldDefinition {
+  id          String   @id @default(cuid())
+  entityType  String
+  label       String
+  /// TEXT | NUMBER | DATE | BOOLEAN — a Prisma enum would need a migration to add a
+  /// fifth type later; a validated string here matches Picklist's own precedent of
+  /// preferring a flexible string over a fixed enum for anything not tightly coupled
+  /// to code logic.
+  fieldType   String
+  isActive    Boolean  @default(true)
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User               @relation("CustomFieldDefCreatedBy", fields: [createdById], references: [id])
+  values    CustomFieldValue[]
+
+  @@unique([entityType, label])
+  @@index([entityType, isActive])
+}
+
+/// One value per (definition, entity) pair. `value` is always a string — the field's
+/// `fieldType` tells the frontend how to render/validate it (a date-typed value is
+/// stored as an ISO string, a boolean as "true"/"false"), the same "store as text,
+/// interpret by declared type" approach `PicklistValue` already uses successfully.
+model CustomFieldValue {
+  id           String @id @default(cuid())
+  definitionId String
+  entityId     String
+  value        String
+
+  definition CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@unique([definitionId, entityId])
+  @@index([entityId])
+}

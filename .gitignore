@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+.env.local
+.env.test
+*.log
+backend/uploads/*
+backend/uploads-test/*
+!backend/uploads/.gitkeep
+!backend/uploads-test/.gitkeep
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
