@@ -70,12 +70,23 @@ export default function InvoiceDetail() {
   const [editTerms, setEditTerms] = useState("");
   const [editDueDate, setEditDueDate] = useState("");
 
-  const load = useCallback(() => {
-    api.get(`/invoices/${id}`).then((res) => setInvoice(res.data));
+  const load = useCallback(async () => {
+    try {
+      const res = await api.get(`/invoices/${id}`);
+      setInvoice(res.data);
+    } catch (err) {
+      console.error("Failed to load invoice:", err);
+      setError(getErrorMessage(err, "Failed to load invoice"));
+    }
   }, [id]);
-  useEffect(() => load(), [load]);
 
-  if (!invoice) return <p>Loading…</p>;
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (!invoice) {
+    return <p>{error ?? "Loading…"}</p>;
+  }
 
   const canApprove = auth?.role === "MANAGING_PARTNER";
   const canRecordPayment = auth?.role === "MANAGING_PARTNER" || auth?.role === "ACCOUNTS_TEAM";

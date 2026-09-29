@@ -172,25 +172,50 @@ export default function NewInvoice() {
     };
   }
 
-  async function handleSave(e: SyntheticEvent, action: "draft" | "approve" | "send") {
+  async function handleSave(
+    e: SyntheticEvent,
+    action: "draft" | "approve" | "send",
+  ) {
     e.preventDefault();
     setError(null);
-    if (!clientId) return setError("Select a client");
-    if (previewLineItems.length === 0) return setError("Add at least one line item to invoice");
-    setSaving(true);
+
+    if (!clientId) {
+      setError("Select a client");
+      return;
+    }
+
+    if (previewLineItems.length === 0) {
+      setError("Add at least one line item to invoice");
+      return;
+    }
+
     try {
+      setSaving(true);
+
       const res = await api.post("/invoices", buildPayload());
-      if (action === "approve" || action === "send") {
-        await api.patch(`/invoices/${res.data.id}/approve`);
-      }
-      if (action === "send") {
-        await api.patch(`/invoices/${res.data.id}/send`);
-      }
-      navigate(`/invoices/${res.data.id}`);
-    } catch (err) {
-      setError(getErrorMessage(err, "Failed to create invoice"));
-    } finally {
+      const invoiceId = res.data.id;
+
+      // Stop the loading state
       setSaving(false);
+
+      // Go to invoice details immediately
+      navigate(`/invoices/${invoiceId}`);
+
+      // Approve / Send after navigation
+      if (action === "approve" || action === "send") {
+        try {
+          await api.patch(`/invoices/${invoiceId}/approve`);
+
+          if (action === "send") {
+            await api.patch(`/invoices/${invoiceId}/send`);
+          }
+        } catch (err) {
+          console.error("Invoice approval/send failed:", err);
+        }
+      }
+    } catch (err) {
+      setSaving(false);
+      setError(getErrorMessage(err, "Failed to create invoice"));
     }
   }
 

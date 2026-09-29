@@ -100,7 +100,7 @@ const NAV_ITEMS: NavItemDef[] = [
   // ACCOUNTS.VIEW flag (see the `accounts` special-case below), not a static role
   // array — the Managing Partner can grant/revoke Accounts access per individual
   // user, which a fixed `roles` list can't express.
-  { to: "/accounts", label: "Accounts", icon: Wallet },
+  { to: "/account", label: "Accounts", icon: Wallet },
   { to: "/users", label: "Firm Users", icon: UserCog, managingPartnerOnly: true },
   { to: "/admin/permissions", label: "Role & Permissions", icon: ShieldCheck, managingPartnerOnly: true },
   { to: "/admin/employee-audit", label: "Employee Task Audit", icon: ClipboardList, managingPartnerOnly: true },

@@ -61,7 +61,7 @@ export default function App() {
             <Route path="/contacts" element={<ContactList />} />
             <Route path="/contacts/new" element={<NewContact />} />
             <Route path="/contacts/:id" element={<ContactDetail />} />
-            <Route path="/accounts" element={<Accounts />} />
+            <Route path="/account" element={<Accounts />} />
             <Route path="/invoices" element={<InvoiceList />} />
             <Route path="/invoices/new" element={<NewInvoice />} />
             <Route path="/invoices/:id" element={<InvoiceDetail />} />
