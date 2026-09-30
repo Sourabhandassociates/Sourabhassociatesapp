@@ -209,11 +209,17 @@ export default function CaseDetail() {
             Documents
           </button>
         )}
-        {sectionPermissions.tasks && (
+        {/* {sectionPermissions.tasks && (
           <button className={tab === "tasks" ? "active" : ""} onClick={() => setTab("tasks")}>
             Tasks
           </button>
-        )}
+        )} */}
+        <button
+          className={tab === "tasks" ? "active" : ""}
+          onClick={() => setTab("tasks")}
+        >
+          Tasks
+        </button>
         {sectionPermissions.hearings && (
           <button className={tab === "hearings" ? "active" : ""} onClick={() => setTab("hearings")}>
             Hearings
@@ -269,8 +275,16 @@ export default function CaseDetail() {
       {tab === "documents" && sectionPermissions.documents && (
         <Documents caseId={data.id} documents={data.documents} onChanged={reload} />
       )}
-      {tab === "tasks" && sectionPermissions.tasks && (
+      {/* {tab === "tasks" && sectionPermissions.tasks && (
         <Tasks caseId={data.id} tasks={data.tasks} staff={staff} onChanged={reload} />
+      )} */}
+      {tab === "tasks" && (
+        <Tasks
+          caseId={data.id}
+          tasks={data.tasks}
+          staff={staff}
+          onChanged={reload}
+        />
       )}
       {tab === "hearings" && sectionPermissions.hearings && (
         <Hearings caseId={data.id} hearings={data.hearings} onChanged={reload} />
@@ -766,30 +780,30 @@ function HearingTimeline({ hearings }: { hearings: CaseDetailData["hearings"] })
       )}
       {expanded && (
         <div className="table-scroll">
-        <table style={{ marginTop: 12 }}>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Court</th>
-              <th>Purpose</th>
-              <th>Status</th>
-              <th>Outcome</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedDesc.map((h) => (
-              <tr key={h.id}>
-                <td>{new Date(h.hearingDate).toLocaleString()}</td>
-                <td>{h.courtName ?? "—"}</td>
-                <td>{h.purpose ?? "—"}</td>
-                <td>
-                  <span className="badge">{h.status}</span>
-                </td>
-                <td>{h.outcomeNotes ?? "—"}</td>
+          <table style={{ marginTop: 12 }}>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Court</th>
+                <th>Purpose</th>
+                <th>Status</th>
+                <th>Outcome</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sortedDesc.map((h) => (
+                <tr key={h.id}>
+                  <td>{new Date(h.hearingDate).toLocaleString()}</td>
+                  <td>{h.courtName ?? "—"}</td>
+                  <td>{h.purpose ?? "—"}</td>
+                  <td>
+                    <span className="badge">{h.status}</span>
+                  </td>
+                  <td>{h.outcomeNotes ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
@@ -887,41 +901,41 @@ function Documents({
       <div className="card">
         <h3>Documents</h3>
         <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Category</th>
-              <th>Confidentiality</th>
-              <th>Latest Version</th>
-              {canDelete && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {documents.map((d) => (
-              <tr key={d.id}>
-                <td>{d.title}</td>
-                <td>{d.category}</td>
-                <td>{d.confidentiality === "CLIENT_VISIBLE" ? "Client visible" : "Internal"}</td>
-                <td>
-                  v{d.versions[0]?.versionNumber ?? 1} — {d.versions[0]?.fileName}
-                </td>
-                {canDelete && (
-                  <td>
-                    <button onClick={() => handleDelete(d.id, d.title)}>Delete</button>
-                  </td>
-                )}
-              </tr>
-            ))}
-            {documents.length === 0 && (
+          <table>
+            <thead>
               <tr>
-                <td colSpan={canDelete ? 5 : 4} className="muted">
-                  No documents uploaded yet.
-                </td>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Confidentiality</th>
+                <th>Latest Version</th>
+                {canDelete && <th></th>}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {documents.map((d) => (
+                <tr key={d.id}>
+                  <td>{d.title}</td>
+                  <td>{d.category}</td>
+                  <td>{d.confidentiality === "CLIENT_VISIBLE" ? "Client visible" : "Internal"}</td>
+                  <td>
+                    v{d.versions[0]?.versionNumber ?? 1} — {d.versions[0]?.fileName}
+                  </td>
+                  {canDelete && (
+                    <td>
+                      <button onClick={() => handleDelete(d.id, d.title)}>Delete</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {documents.length === 0 && (
+                <tr>
+                  <td colSpan={canDelete ? 5 : 4} className="muted">
+                    No documents uploaded yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -947,30 +961,224 @@ function WorkingOnCaseTable({ employees }: { employees: WorkingOnCaseEmployee[] 
         Already working on this case:
       </p>
       <div className="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Employee Name</th>
-            <th>Role</th>
-            <th>Current Assigned Tasks</th>
-            <th>Pending Tasks</th>
-          </tr>
-        </thead>
-        <tbody>
-          {employees.map((e) => (
-            <tr key={e.id}>
-              <td>{e.name}</td>
-              <td>{e.role.replaceAll("_", " ")}</td>
-              <td>{e.assigned}</td>
-              <td>{e.pending}</td>
+        <table>
+          <thead>
+            <tr>
+              <th>Employee Name</th>
+              <th>Role</th>
+              <th>Current Assigned Tasks</th>
+              <th>Pending Tasks</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {employees.map((e) => (
+              <tr key={e.id}>
+                <td>{e.name}</td>
+                <td>{e.role.replaceAll("_", " ")}</td>
+                <td>{e.assigned}</td>
+                <td>{e.pending}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
+
+// function Tasks({
+//   caseId,
+//   tasks,
+//   staff,
+//   onChanged,
+// }: {
+//   caseId: string;
+//   tasks: CaseDetailData["tasks"];
+//   staff: StaffMember[];
+//   onChanged: () => void;
+// }) {
+//   const { auth } = useAuth();
+//   const canDelete = !!auth && CASE_EDITOR_ROLES.includes(auth.role);
+//   const [title, setTitle] = useState("");
+//   const [assignedToId, setAssignedToId] = useState("");
+//   const [priority, setPriority] = useState("MEDIUM");
+//   const [dueDate, setDueDate] = useState("");
+//   const [error, setError] = useState<string | null>(null);
+
+//   /**
+//    * Step 1 revision (item 9), enhanced in the Step 1 second revision (item 5) —
+//    * Smart Task Assignment: informational only, never blocks the assignment; surfaces
+//    * who's already on this case, with their task counts on it (assigned/pending) and
+//    * role, so the Managing Partner can decide whether to add another person or lean on
+//    * someone already covering the matter. Computed entirely from the case's own task
+//    * list already in hand — no extra fetch.
+//    */
+//   const currentlyWorking = Array.from(
+//     tasks.reduce((byEmployee, t) => {
+//       const existing = byEmployee.get(t.assignedTo.id) ?? {
+//         name: t.assignedTo.name,
+//         role: t.assignedTo.role,
+//         assigned: 0,
+//         pending: 0,
+//       };
+//       existing.assigned += 1;
+//       if (t.status === "PENDING" || t.status === "IN_PROGRESS") existing.pending += 1;
+//       byEmployee.set(t.assignedTo.id, existing);
+//       return byEmployee;
+//     }, new Map<string, { name: string; role: string; assigned: number; pending: number }>())
+//   ).map(([id, info]) => ({ id, ...info }));
+
+//   async function handleCreate(e: FormEvent) {
+//     e.preventDefault();
+//     if (!assignedToId) return setError("Select an assignee");
+//     setError(null);
+//     try {
+//       await api.post(`/cases/${caseId}/tasks`, {
+//         title,
+//         assignedToId,
+//         priority,
+//         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+//       });
+//       setTitle("");
+//       onChanged();
+//     } catch (err) {
+//       setError(getErrorMessage(err, "Failed to create task"));
+//     }
+//   }
+
+//   async function updateStatus(taskId: string, status: string) {
+//     await api.patch(`/tasks/${taskId}`, { status });
+//     onChanged();
+//   }
+
+//   /** Step 1 revision (item 1) — task reassignment; the previous UI had no way to
+//    * change an assignee at all once a task was created. */
+//   async function reassign(taskId: string, newAssigneeId: string) {
+//     await api.patch(`/tasks/${taskId}`, { assignedToId: newAssigneeId });
+//     onChanged();
+//   }
+
+//   /** Step 2 — Soft Delete & Recycle Bin: moves the task to the Recycle Bin. */
+//   async function handleDelete(taskId: string, taskTitle: string) {
+//     if (!window.confirm(`Move task "${taskTitle}" to the Recycle Bin?`)) return;
+//     await api.delete(`/tasks/${taskId}`);
+//     onChanged();
+//   }
+
+//   return (
+//     <div>
+//       <div className="card">
+//         <h3>Assign Task</h3>
+//         <WorkingOnCaseTable employees={currentlyWorking} />
+//         <form onSubmit={handleCreate}>
+//           <div className="form-grid">
+//             <div>
+//               <label htmlFor="taskTitle">Title</label>
+//               <input id="taskTitle" value={title} onChange={(e) => setTitle(e.target.value)} required />
+//             </div>
+//             <div>
+//               <label htmlFor="assignee">Assign To</label>
+//               <select
+//                 id="assignee"
+//                 value={assignedToId}
+//                 onChange={(e) => setAssignedToId(e.target.value)}
+//                 required
+//               >
+//                 <option value="">Select…</option>
+//                 {staff.map((s) => (
+//                   <option key={s.id} value={s.id}>
+//                     {s.name}
+//                   </option>
+//                 ))}
+//               </select>
+//             </div>
+//           </div>
+//           <div className="form-grid">
+//             <div>
+//               <label htmlFor="priority">Priority</label>
+//               <select id="priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
+//                 <option value="LOW">Low</option>
+//                 <option value="MEDIUM">Medium</option>
+//                 <option value="HIGH">High</option>
+//                 <option value="URGENT">Urgent</option>
+//               </select>
+//             </div>
+//             <div>
+//               <label htmlFor="dueDate">Due Date</label>
+//               <input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+//             </div>
+//           </div>
+//           {error && <p className="error-text">{error}</p>}
+//           <button className="primary" type="submit">
+//             Create Task
+//           </button>
+//         </form>
+//       </div>
+
+//       <div className="card">
+//         <h3>Tasks</h3>
+//         <WorkingOnCaseTable employees={currentlyWorking} />
+//         <div className="table-scroll">
+//         <table>
+//           <thead>
+//             <tr>
+//               <th>Title</th>
+//               <th>Assignee</th>
+//               <th>Priority</th>
+//               <th>Status</th>
+//               <th>Due</th>
+//               <th></th>
+//               {canDelete && <th></th>}
+//             </tr>
+//           </thead>
+//           <tbody>
+//             {tasks.map((t) => (
+//               <tr key={t.id}>
+//                 <td>
+//                   <Link to={`/tasks/${t.id}`}>{t.title}</Link>
+//                 </td>
+//                 <td>
+//                   <select value={t.assignedToId} onChange={(e) => reassign(t.id, e.target.value)}>
+//                     {staff.map((s) => (
+//                       <option key={s.id} value={s.id}>
+//                         {s.name}
+//                       </option>
+//                     ))}
+//                   </select>
+//                 </td>
+//                 <td>{t.priority}</td>
+//                 <td>
+//                   <span className="badge">{t.status.replaceAll("_", " ")}</span>
+//                 </td>
+//                 <td>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}</td>
+//                 <td>
+//                   <select value={t.status} onChange={(e) => updateStatus(t.id, e.target.value)}>
+//                     <option value="PENDING">Pending</option>
+//                     <option value="IN_PROGRESS">In Progress</option>
+//                     <option value="COMPLETED">Completed</option>
+//                   </select>
+//                 </td>
+//                 {canDelete && (
+//                   <td>
+//                     <button onClick={() => handleDelete(t.id, t.title)}>Delete</button>
+//                   </td>
+//                 )}
+//               </tr>
+//             ))}
+//             {tasks.length === 0 && (
+//               <tr>
+//                 <td colSpan={canDelete ? 7 : 6} className="muted">
+//                   No tasks yet.
+//                 </td>
+//               </tr>
+//             )}
+//           </tbody>
+//         </table>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// }
 
 function Tasks({
   caseId,
@@ -984,182 +1192,430 @@ function Tasks({
   onChanged: () => void;
 }) {
   const { auth } = useAuth();
-  const canDelete = !!auth && CASE_EDITOR_ROLES.includes(auth.role);
+
+  const canDelete =
+    !!auth && CASE_EDITOR_ROLES.includes(auth.role);
+
   const [title, setTitle] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
   const [dueDate, setDueDate] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
-  /**
-   * Step 1 revision (item 9), enhanced in the Step 1 second revision (item 5) —
-   * Smart Task Assignment: informational only, never blocks the assignment; surfaces
-   * who's already on this case, with their task counts on it (assigned/pending) and
-   * role, so the Managing Partner can decide whether to add another person or lean on
-   * someone already covering the matter. Computed entirely from the case's own task
-   * list already in hand — no extra fetch.
+  /*
+   * Employees already working on this case.
+   * This is informational only.
    */
   const currentlyWorking = Array.from(
-    tasks.reduce((byEmployee, t) => {
-      const existing = byEmployee.get(t.assignedTo.id) ?? {
-        name: t.assignedTo.name,
-        role: t.assignedTo.role,
-        assigned: 0,
-        pending: 0,
-      };
-      existing.assigned += 1;
-      if (t.status === "PENDING" || t.status === "IN_PROGRESS") existing.pending += 1;
-      byEmployee.set(t.assignedTo.id, existing);
-      return byEmployee;
-    }, new Map<string, { name: string; role: string; assigned: number; pending: number }>())
-  ).map(([id, info]) => ({ id, ...info }));
+    tasks.reduce(
+      (byEmployee, t) => {
+        const existing = byEmployee.get(t.assignedTo.id) ?? {
+          name: t.assignedTo.name,
+          role: t.assignedTo.role,
+          assigned: 0,
+          pending: 0,
+        };
 
+        existing.assigned += 1;
+
+        if (
+          t.status === "PENDING" ||
+          t.status === "IN_PROGRESS"
+        ) {
+          existing.pending += 1;
+        }
+
+        byEmployee.set(t.assignedTo.id, existing);
+
+        return byEmployee;
+      },
+      new Map<
+        string,
+        {
+          name: string;
+          role: string;
+          assigned: number;
+          pending: number;
+        }
+      >()
+    )
+  ).map(([id, info]) => ({
+    id,
+    ...info,
+  }));
+
+  /*
+   * Create a new task for this case.
+   *
+   * Backend endpoint:
+   * POST /api/cases/:caseId/tasks
+   */
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    if (!assignedToId) return setError("Select an assignee");
+
     setError(null);
+
+    if (!title.trim()) {
+      setError("Enter a task title");
+      return;
+    }
+
+    if (!assignedToId) {
+      setError("Select an assignee");
+      return;
+    }
+
+    setCreating(true);
+
     try {
       await api.post(`/cases/${caseId}/tasks`, {
-        title,
+        title: title.trim(),
         assignedToId,
         priority,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+        dueDate: dueDate
+          ? new Date(dueDate).toISOString()
+          : undefined,
       });
+
       setTitle("");
+      setAssignedToId("");
+      setPriority("MEDIUM");
+      setDueDate("");
+
       onChanged();
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to create task"));
+      setError(
+        getErrorMessage(err, "Failed to create task")
+      );
+    } finally {
+      setCreating(false);
     }
   }
 
-  async function updateStatus(taskId: string, status: string) {
-    await api.patch(`/tasks/${taskId}`, { status });
-    onChanged();
+  /*
+   * Update task status.
+   */
+  async function updateStatus(
+    taskId: string,
+    status: string
+  ) {
+    try {
+      await api.patch(`/tasks/${taskId}`, {
+        status,
+      });
+
+      onChanged();
+    } catch (err) {
+      setError(
+        getErrorMessage(err, "Failed to update task status")
+      );
+    }
   }
 
-  /** Step 1 revision (item 1) — task reassignment; the previous UI had no way to
-   * change an assignee at all once a task was created. */
-  async function reassign(taskId: string, newAssigneeId: string) {
-    await api.patch(`/tasks/${taskId}`, { assignedToId: newAssigneeId });
-    onChanged();
+  /*
+   * Reassign an existing task.
+   */
+  async function reassign(
+    taskId: string,
+    newAssigneeId: string
+  ) {
+    try {
+      await api.patch(`/tasks/${taskId}`, {
+        assignedToId: newAssigneeId,
+      });
+
+      onChanged();
+    } catch (err) {
+      setError(
+        getErrorMessage(err, "Failed to reassign task")
+      );
+    }
   }
 
-  /** Step 2 — Soft Delete & Recycle Bin: moves the task to the Recycle Bin. */
-  async function handleDelete(taskId: string, taskTitle: string) {
-    if (!window.confirm(`Move task "${taskTitle}" to the Recycle Bin?`)) return;
-    await api.delete(`/tasks/${taskId}`);
-    onChanged();
+  /*
+   * Soft-delete task.
+   */
+  async function handleDelete(
+    taskId: string,
+    taskTitle: string
+  ) {
+    if (
+      !window.confirm(
+        `Move task "${taskTitle}" to the Recycle Bin?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await api.delete(`/tasks/${taskId}`);
+
+      onChanged();
+    } catch (err) {
+      setError(
+        getErrorMessage(err, "Failed to delete task")
+      );
+    }
   }
 
   return (
     <div>
+      {/* =========================
+          CREATE TASK
+      ========================== */}
       <div className="card">
         <h3>Assign Task</h3>
-        <WorkingOnCaseTable employees={currentlyWorking} />
+
+        <WorkingOnCaseTable
+          employees={currentlyWorking}
+        />
+
         <form onSubmit={handleCreate}>
           <div className="form-grid">
             <div>
-              <label htmlFor="taskTitle">Title</label>
-              <input id="taskTitle" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <label htmlFor="taskTitle">
+                Title
+              </label>
+
+              <input
+                id="taskTitle"
+                value={title}
+                onChange={(e) =>
+                  setTitle(e.target.value)
+                }
+                placeholder="Enter task title"
+                required
+              />
             </div>
+
             <div>
-              <label htmlFor="assignee">Assign To</label>
+              <label htmlFor="assignee">
+                Assign To
+              </label>
+
               <select
                 id="assignee"
                 value={assignedToId}
-                onChange={(e) => setAssignedToId(e.target.value)}
+                onChange={(e) =>
+                  setAssignedToId(e.target.value)
+                }
                 required
               >
-                <option value="">Select…</option>
+                <option value="">
+                  Select…
+                </option>
+
                 {staff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
+                  <option
+                    key={s.id}
+                    value={s.id}
+                  >
+                    {s.name} —{" "}
+                    {s.role.replaceAll("_", " ")}
                   </option>
                 ))}
               </select>
             </div>
           </div>
+
           <div className="form-grid">
             <div>
-              <label htmlFor="priority">Priority</label>
-              <select id="priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
+              <label htmlFor="priority">
+                Priority
+              </label>
+
+              <select
+                id="priority"
+                value={priority}
+                onChange={(e) =>
+                  setPriority(e.target.value)
+                }
+              >
+                <option value="LOW">
+                  Low
+                </option>
+
+                <option value="MEDIUM">
+                  Medium
+                </option>
+
+                <option value="HIGH">
+                  High
+                </option>
+
+                <option value="URGENT">
+                  Urgent
+                </option>
               </select>
             </div>
+
             <div>
-              <label htmlFor="dueDate">Due Date</label>
-              <input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <label htmlFor="dueDate">
+                Due Date
+              </label>
+
+              <input
+                id="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) =>
+                  setDueDate(e.target.value)
+                }
+              />
             </div>
           </div>
-          {error && <p className="error-text">{error}</p>}
-          <button className="primary" type="submit">
-            Create Task
+
+          {error && (
+            <p className="error-text">
+              {error}
+            </p>
+          )}
+
+          <button
+            className="primary"
+            type="submit"
+            disabled={creating}
+          >
+            {creating
+              ? "Creating…"
+              : "Create Task"}
           </button>
         </form>
       </div>
 
+      {/* =========================
+          TASK LIST
+      ========================== */}
       <div className="card">
         <h3>Tasks</h3>
-        <WorkingOnCaseTable employees={currentlyWorking} />
+
         <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Assignee</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th>Due</th>
-              <th></th>
-              {canDelete && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {tasks.map((t) => (
-              <tr key={t.id}>
-                <td>
-                  <Link to={`/tasks/${t.id}`}>{t.title}</Link>
-                </td>
-                <td>
-                  <select value={t.assignedToId} onChange={(e) => reassign(t.id, e.target.value)}>
-                    {staff.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>{t.priority}</td>
-                <td>
-                  <span className="badge">{t.status.replaceAll("_", " ")}</span>
-                </td>
-                <td>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}</td>
-                <td>
-                  <select value={t.status} onChange={(e) => updateStatus(t.id, e.target.value)}>
-                    <option value="PENDING">Pending</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="COMPLETED">Completed</option>
-                  </select>
-                </td>
+          <table>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Assignee</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Due</th>
+                <th>Update Status</th>
+
                 {canDelete && (
-                  <td>
-                    <button onClick={() => handleDelete(t.id, t.title)}>Delete</button>
-                  </td>
+                  <th>Delete</th>
                 )}
               </tr>
-            ))}
-            {tasks.length === 0 && (
-              <tr>
-                <td colSpan={canDelete ? 7 : 6} className="muted">
-                  No tasks yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+
+            <tbody>
+              {tasks.map((t) => (
+                <tr key={t.id}>
+                  <td>
+                    <Link
+                      to={`/tasks/${t.id}`}
+                    >
+                      {t.title}
+                    </Link>
+                  </td>
+
+                  <td>
+                    <select
+                      value={t.assignedToId}
+                      onChange={(e) =>
+                        reassign(
+                          t.id,
+                          e.target.value
+                        )
+                      }
+                    >
+                      {staff.map((s) => (
+                        <option
+                          key={s.id}
+                          value={s.id}
+                        >
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+
+                  <td>
+                    {t.priority}
+                  </td>
+
+                  <td>
+                    <span className="badge">
+                      {t.status.replaceAll(
+                        "_",
+                        " "
+                      )}
+                    </span>
+                  </td>
+
+                  <td>
+                    {t.dueDate
+                      ? new Date(
+                        t.dueDate
+                      ).toLocaleDateString()
+                      : "—"}
+                  </td>
+
+                  <td>
+                    <select
+                      value={t.status}
+                      onChange={(e) =>
+                        updateStatus(
+                          t.id,
+                          e.target.value
+                        )
+                      }
+                    >
+                      <option value="PENDING">
+                        Pending
+                      </option>
+
+                      <option value="IN_PROGRESS">
+                        In Progress
+                      </option>
+
+                      <option value="COMPLETED">
+                        Completed
+                      </option>
+                    </select>
+                  </td>
+
+                  {canDelete && (
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDelete(
+                            t.id,
+                            t.title
+                          )
+                        }
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+
+              {tasks.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={
+                      canDelete ? 7 : 6
+                    }
+                    className="muted"
+                  >
+                    No tasks yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1313,48 +1769,48 @@ function Hearings({
       <div className="card">
         <h3>Hearings</h3>
         <div className="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Court</th>
-              <th>Hall/No.</th>
-              <th>Purpose</th>
-              <th>Status</th>
-              <th>Outcome</th>
-              {canManage && <th></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {hearings.map((h) => (
-              <tr key={h.id}>
-                <td>{new Date(h.hearingDate).toLocaleString()}</td>
-                <td>{h.courtName ?? "—"}</td>
-                <td>{h.courtHall ?? "—"}</td>
-                <td>{h.purpose ?? "—"}</td>
-                <td>
-                  <span className="badge">{h.status}</span>
-                </td>
-                <td>{h.outcomeNotes ?? "—"}</td>
-                {canManage && (
-                  <td>
-                    {h.status === "SCHEDULED" &&
-                      (outcomeFor === h.id ? null : (
-                        <button onClick={() => setOutcomeFor(h.id)}>Record Outcome</button>
-                      ))}
-                  </td>
-                )}
-              </tr>
-            ))}
-            {hearings.length === 0 && (
+          <table>
+            <thead>
               <tr>
-                <td colSpan={canManage ? 6 : 5} className="muted">
-                  No hearings scheduled yet.
-                </td>
+                <th>Date</th>
+                <th>Court</th>
+                <th>Hall/No.</th>
+                <th>Purpose</th>
+                <th>Status</th>
+                <th>Outcome</th>
+                {canManage && <th></th>}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {hearings.map((h) => (
+                <tr key={h.id}>
+                  <td>{new Date(h.hearingDate).toLocaleString()}</td>
+                  <td>{h.courtName ?? "—"}</td>
+                  <td>{h.courtHall ?? "—"}</td>
+                  <td>{h.purpose ?? "—"}</td>
+                  <td>
+                    <span className="badge">{h.status}</span>
+                  </td>
+                  <td>{h.outcomeNotes ?? "—"}</td>
+                  {canManage && (
+                    <td>
+                      {h.status === "SCHEDULED" &&
+                        (outcomeFor === h.id ? null : (
+                          <button onClick={() => setOutcomeFor(h.id)}>Record Outcome</button>
+                        ))}
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {hearings.length === 0 && (
+                <tr>
+                  <td colSpan={canManage ? 6 : 5} className="muted">
+                    No hearings scheduled yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
