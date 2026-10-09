@@ -10,11 +10,11 @@ interface CaseRow {
   id: string;
   matterNumber: string;
   courtCaseNumber: string | null;
-  /** New Case form simplification (2026-08-11) — title/practiceArea are now optional. */
   title: string | null;
-  practiceArea: string | null;
   status: string;
-  partner: { name: string };
+  courtNumber: string | null;
+  courtName:string | null;
+  
 }
 
 const EXPENSE_CATEGORIES = [
@@ -74,7 +74,7 @@ export default function CaseList() {
           <label htmlFor="caseSearch">Search</label>
           <input
             id="caseSearch"
-            placeholder="Search by Matter Number, court case number, or title…"
+            placeholder="Search by Client Number, court case number, or title…"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -108,50 +108,55 @@ export default function CaseList() {
       )}
 
       <div className="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Matter Number</th>
-            <th>Court Case No.</th>
-            <th>Title</th>
-            <th>Practice Area</th>
-            <th>Partner</th>
-            <th>Status</th>
-            {accountsPermissions.createExpense && <th></th>}
-          </tr>
-        </thead>
-        <tbody>
-          {cases.map((c) => (
-            <tr key={c.id} className="clickable" onClick={() => navigate(`/cases/${c.id}`)}>
-              <td>{c.matterNumber}</td>
-              <td>{c.courtCaseNumber ?? "—"}</td>
-              <td>{c.title ?? "—"}</td>
-              <td>{c.practiceArea ?? "—"}</td>
-              <td>{c.partner.name}</td>
-              <td>
-                <span className={`badge status-${c.status}`}>{c.status}</span>
-              </td>
-              {accountsPermissions.createExpense && (
-                <td onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="secondary"
-                    onClick={() => setExpenseForCase(c)}
-                  >
-                    Add Expense
-                  </button>
-                </td>
-              )}
-            </tr>
-          ))}
-          {cases.length === 0 && (
+        <table>
+          <thead>
             <tr>
-              <td colSpan={accountsPermissions.createExpense ? 7 : 6} className="muted">
-                No cases yet.
-              </td>
+              <th>Client Number</th>
+              <th>Court Case No.</th>
+              <th>Title</th>
+              <th>Court No</th>
+              <th>Court Complex</th>
+             
+              {/* <th>Practice Area</th> */}
+              {/* <th>Partner</th> */}
+              <th>Status</th>
+              {accountsPermissions.createExpense && <th></th>}
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {cases.map((c) => (
+              <tr key={c.id} className="clickable" onClick={() => navigate(`/cases/${c.id}`)}>
+                <td>{c.matterNumber}</td>
+                <td>{c.courtCaseNumber ?? "—"}</td>
+                <td>{c.title ?? "—"}</td>
+                <td>{c.courtNumber ?? "_"}</td>
+                <td>{c.courtName ?? "—"}</td>
+                {/* <td>{c.practiceArea ?? "—"}</td> */}
+                {/* <td>{c.partner.name}</td> */}
+                <td>
+                  <span className={`badge status-${c.status}`}>{c.status}</span>
+                </td>
+                {accountsPermissions.createExpense && (
+                  <td onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="secondary"
+                      onClick={() => setExpenseForCase(c)}
+                    >
+                      Add Expense
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+            {cases.length === 0 && (
+              <tr>
+                <td colSpan={accountsPermissions.createExpense ? 7 : 6} className="muted">
+                  No cases yet.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
       <PaginationControls
         page={page}
@@ -252,7 +257,7 @@ function CaseQuickExpenseForm({
         <div className="muted" style={{ fontSize: "0.85em" }}>
           Case
         </div>
-        <div>{caseRow.matterNumber}</div>
+        <div>{caseRow.matterNumber  }</div>
       </div>
       <form onSubmit={handleSubmit} className="form-grid">
         <div>

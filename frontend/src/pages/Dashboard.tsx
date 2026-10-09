@@ -145,74 +145,209 @@ export default function Dashboard() {
  * expanding to the full pending list, so the dashboard stays scannable as task volume
  * grows firm-wide.
  */
+// function FirmTaskBreakdown({ tasks }: { tasks: FirmTask[] }) {
+//   const [expanded, setExpanded] = useState(false);
+//   const [search, setSearch] = useState("");
+
+//   const pending = tasks.filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS");
+//   const overdue = tasks.filter((t) => t.isOverdue);
+//   const completed = tasks.filter((t) => t.status === "COMPLETED");
+//   const visiblePending = expanded ? pending : pending.slice(0, 5);
+
+//   return (
+//     <div className="card" style={{ marginTop: 24 }}>
+//       <h3>Firm-wide Task Breakdown</h3>
+//       <div className="dashboard-grid" style={{ marginBottom: 16 }}>
+//         <div className="stat-tile">
+//           <div className="value">{pending.length}</div>
+//           <div className="label">Pending Tasks</div>
+//         </div>
+//         <div className="stat-tile">
+//           <div className="value">{overdue.length}</div>
+//           <div className="label">Overdue Tasks</div>
+//         </div>
+//         <div className="stat-tile">
+//           <div className="value">{completed.length}</div>
+//           <div className="label">Completed Tasks</div>
+//         </div>
+//       </div>
+//       <div>
+//         <input placeholder="Search tasks..." style={{maxWidth: 300}} value={search} onChange={(e) => setSearch(e.target.value)} />
+//       </div>
+//       <div className="table-scroll">
+//         <table>
+//           <thead>
+//             <tr>
+//               <th>Task</th>
+//               <th>Client Number</th>
+//               <th>Assignee</th>
+//               <th>Due Date</th>
+//               <th>Status</th>
+//             </tr>
+//           </thead>
+//           <tbody>
+//             {visiblePending.map((t) => (
+//               <tr key={t.id}>
+//                 <td>{t.title}</td>
+//                 <td>
+//                   <Link to={`/cases/${t.case.id}`}>{t.case.matterNumber}</Link>
+//                 </td>
+//                 <td>{t.assignedTo.name}</td>
+//                 <td>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}</td>
+//                 <td>
+//                   <span className="badge">{t.isOverdue ? "OVERDUE" : t.status.replaceAll("_", " ")}</span>
+//                 </td>
+//               </tr>
+//             ))}
+//             {pending.length === 0 && (
+//               <tr>
+//                 <td colSpan={5} className="muted">
+//                   No pending tasks firm-wide.
+//                 </td>
+//               </tr>
+//             )}
+//           </tbody>
+//         </table>
+//       </div>
+//       {pending.length > 5 && (
+//         <button style={{ marginTop: 12 }} onClick={() => setExpanded((v) => !v)}>
+//           {expanded ? "View Less" : `View More (${pending.length - 5} more)`}
+//         </button>
+//       )}
+//     </div>
+//   );
+// }
+
 function FirmTaskBreakdown({ tasks }: { tasks: FirmTask[] }) {
   const [expanded, setExpanded] = useState(false);
+  const [search, setSearch] = useState("");
 
-  const pending = tasks.filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS");
+  const pending = tasks.filter(
+    (t) => t.status === "PENDING" || t.status === "IN_PROGRESS"
+  );
+
   const overdue = tasks.filter((t) => t.isOverdue);
   const completed = tasks.filter((t) => t.status === "COMPLETED");
-  const visiblePending = expanded ? pending : pending.slice(0, 5);
+
+  const filteredPending = pending.filter((t) => {
+    const q = search.trim().toLowerCase();
+
+    if (!q) return true;
+
+    return (
+      (t.title ?? "").toLowerCase().includes(q) ||
+      (t.assignedTo?.name ?? "").toLowerCase().includes(q) ||
+      (t.case?.matterNumber ?? "").toLowerCase().includes(q) ||
+      t.status.toLowerCase().replaceAll("_", " ").includes(q) ||
+      (t.isOverdue && "overdue".includes(q))
+    );
+  });
+
+  const visiblePending =
+    expanded || search.trim()
+      ? filteredPending
+      : filteredPending.slice(0, 5);
 
   return (
     <div className="card" style={{ marginTop: 24 }}>
       <h3>Firm-wide Task Breakdown</h3>
+
       <div className="dashboard-grid" style={{ marginBottom: 16 }}>
         <div className="stat-tile">
           <div className="value">{pending.length}</div>
           <div className="label">Pending Tasks</div>
         </div>
+
         <div className="stat-tile">
           <div className="value">{overdue.length}</div>
           <div className="label">Overdue Tasks</div>
         </div>
+
         <div className="stat-tile">
           <div className="value">{completed.length}</div>
           <div className="label">Completed Tasks</div>
         </div>
       </div>
+
+      <div>
+        <input
+          placeholder="Search task, assignee, client number, or status..."
+          style={{ maxWidth: 300 }}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+          }}
+        />
+      </div>
+
       <div className="table-scroll">
         <table>
           <thead>
             <tr>
               <th>Task</th>
-              <th>Matter</th>
+              <th>Client Number</th>
               <th>Assignee</th>
               <th>Due Date</th>
               <th>Status</th>
             </tr>
           </thead>
+
           <tbody>
             {visiblePending.map((t) => (
               <tr key={t.id}>
                 <td>{t.title}</td>
+
                 <td>
-                  <Link to={`/cases/${t.case.id}`}>{t.case.matterNumber}</Link>
+                  <Link to={`/cases/${t.case.id}`}>
+                    {t.case.matterNumber}
+                  </Link>
                 </td>
+
                 <td>{t.assignedTo.name}</td>
-                <td>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}</td>
+
                 <td>
-                  <span className="badge">{t.isOverdue ? "OVERDUE" : t.status.replaceAll("_", " ")}</span>
+                  {t.dueDate
+                    ? new Date(t.dueDate).toLocaleDateString()
+                    : "—"}
+                </td>
+
+                <td>
+                  <span className="badge">
+                    {t.isOverdue
+                      ? "OVERDUE"
+                      : t.status.replaceAll("_", " ")}
+                  </span>
                 </td>
               </tr>
             ))}
-            {pending.length === 0 && (
+
+            {filteredPending.length === 0 && (
               <tr>
                 <td colSpan={5} className="muted">
-                  No pending tasks firm-wide.
+                  {search.trim()
+                    ? "No matching pending tasks found."
+                    : "No pending tasks firm-wide."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-      {pending.length > 5 && (
-        <button style={{ marginTop: 12 }} onClick={() => setExpanded((v) => !v)}>
-          {expanded ? "View Less" : `View More (${pending.length - 5} more)`}
+
+      {!search.trim() && pending.length > 5 && (
+        <button
+          style={{ marginTop: 12 }}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded
+            ? "View Less"
+            : `View More (${pending.length - 5} more)`}
         </button>
       )}
     </div>
   );
 }
+
 
 /** Milestone 4 — Advocate/Office Staff Dashboard section (SRD Section 6.6/18):
  * today's hearings across every case the viewer can see (own cases for an Advocate,
@@ -268,7 +403,7 @@ function MyTaskQueue({ tasks }: { tasks: TaskItem[] }) {
           <thead>
             <tr>
               <th>Task</th>
-              <th>Matter</th>
+              <th>Client Number</th>
               <th>Due Date</th>
               <th>Status</th>
             </tr>

@@ -56,7 +56,7 @@ export default function NewClient() {
           <strong>Client ID:</strong> {result.clientId}
         </p>
         <p>
-          <strong>Temporary password:</strong> {result.temporaryPassword}
+          <strong>Password:</strong> {result.temporaryPassword}
         </p>
         <p className="muted">
           Share these credentials with the client through a secure channel — automated delivery is a

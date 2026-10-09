@@ -16,13 +16,13 @@ interface ExpenseRow {
   paymentMode: string | null;
   description: string | null;
   case:
-    | {
-        id: string;
-        matterNumber: string;
-        courtCaseNumber: string | null;
-        clients: { client: { id: string; clientId: string; name: string } }[];
-      }
-    | null;
+  | {
+    id: string;
+    matterNumber: string;
+    courtCaseNumber: string | null;
+    clients: { client: { id: string; clientId: string; name: string } }[];
+  }
+  | null;
   client: { id: string; clientId: string; name: string } | null;
   incurredBy: { id: string; name: string };
   receiptDocument: { id: string; title: string } | null;
@@ -306,7 +306,7 @@ export function ExpensesPanel({ permissions }: { permissions: AccountsPermission
                 )}
               </div>
             )}
-            {kind === "CLIENT" && (
+            {/* {kind === "CLIENT" && (
               <div style={{ position: "relative" }}>
                 <label>Client</label>
                 <input
@@ -349,7 +349,68 @@ export function ExpensesPanel({ permissions }: { permissions: AccountsPermission
                   </div>
                 )}
               </div>
+            )} */}
+
+            {kind === "CLIENT" && (
+              <div style={{ position: "relative" }}>
+                <label>Client</label>
+
+                <input
+                  type="text"
+                  value={clientLabel || clientQuery}
+                  onChange={(e) => {
+                    setClientId("");
+                    setClientLabel("");
+                    searchClients(e.target.value);
+                  }}
+                  placeholder="Search by name, Client ID, or mobile"
+                  required
+                />
+
+                {clientResults.length > 0 && !clientId && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      zIndex: 10,
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border-strong)",
+                      borderRadius: "var(--radius-sm)",
+                      marginTop: 2,
+                      maxHeight: 220,
+                      overflowY: "auto",
+                      boxShadow: "var(--shadow-md)",
+                    }}
+                  >
+                    {clientResults.map((c) => (
+                      <div
+                        key={c.id}
+                        className="searchable-select-option"
+                        onClick={() => {
+                          setClientId(c.id);
+                          setClientLabel(`${c.name} (${c.clientId})`);
+                          setClientQuery("");
+                          setClientResults([]);
+                        }}
+                      >
+                        {c.name} ({c.clientId})
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {clientQuery.trim() !== "" &&
+                  !clientId &&
+                  clientResults.length === 0 && (
+                    <p className="error-text">
+                      No clients found. Check the name, Client ID, or mobile number.
+                    </p>
+                  )}
+              </div>
             )}
+
             <div>
               <label>Expense Category</label>
               <select value={category} onChange={(e) => setCategory(e.target.value)}>

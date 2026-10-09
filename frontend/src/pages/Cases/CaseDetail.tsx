@@ -16,6 +16,7 @@ interface CaseDetailData {
   courtCaseNumber: string | null;
   /** New Case form simplification (2026-08-11) — title/practiceArea are now optional. */
   title: string | null;
+  caseTitle: string | null;
   practiceArea: string | null;
   status: string;
   courtName: string | null;
@@ -352,6 +353,7 @@ function Overview({
   const [oppositeParty, setOppositeParty] = useState(data.oppositeParty ?? "");
   const [department, setDepartment] = useState(data.department ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [title, settitle] = useState(data.title ?? "");
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -366,6 +368,7 @@ function Overview({
         oppositeCounsel: oppositeCounsel || undefined,
         oppositeParty: oppositeParty || undefined,
         department: department || undefined,
+        title: title || undefined,
       });
       setEditing(false);
       onChanged();
@@ -437,6 +440,17 @@ function Overview({
                   value={courtName}
                   onChange={setCourtName}
                 />
+              </div>
+            </div>
+            <div className="form-grid">
+              <div>
+              <label htmlFor="CaseTitle">Case Title</label>
+              <input
+                id="CaseTitle"
+                type="text"
+                value={title}
+                onChange={(e) => settitle(e.target.value)}
+              />
               </div>
             </div>
             <div className="form-grid">
