@@ -36,3 +36,16 @@ documentsRouter.post(
 documentsRouter.get("/versions/:versionId/download", documentsController.downloadVersion);
 /** Step 2 — Soft Delete & Recycle Bin (SRD Section 27): soft-deletes, never a real DELETE. */
 documentsRouter.delete("/:id", requirePermission("DOCUMENTS.DELETE"), documentsController.deleteDocument);
+
+documentsRouter.get("/:id", documentsController.getDocument);
+
+documentsRouter.get(
+  "/versions/:versionId/download",
+  documentsController.downloadVersion
+);
+
+documentsRouter.delete(
+  "/:id",
+  requirePermission("DOCUMENTS.DELETE"),
+  documentsController.deleteDocument
+);

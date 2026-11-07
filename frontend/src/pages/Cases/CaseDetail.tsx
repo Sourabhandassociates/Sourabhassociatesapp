@@ -1,4 +1,6 @@
-import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useState, useRef } from "react";
+import { renderAsync } from "docx-preview";
+import * as XLSX from "xlsx";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { getErrorMessage } from "../../api/errorMessage";
@@ -9,6 +11,7 @@ import { useAccountsPermissions, AccountsPermissions } from "../../hooks/useAcco
 import { useCaseSectionPermissions, CaseSectionPermissions } from "../../hooks/useCaseSectionPermissions";
 import { CaseAccountsPanel } from "../Accounts/CaseAccountsPanel";
 import { CaseContentSection } from "./CaseContentSection";
+
 
 interface CaseDetailData {
   id: string;
@@ -36,7 +39,11 @@ interface CaseDetailData {
     title: string;
     category: string;
     confidentiality: string;
-    versions: { versionNumber: number; fileName: string }[];
+    versions: {
+      id: string;
+      versionNumber: number;
+      fileName: string;
+    }[];
   }[];
   tasks: {
     id: string;
@@ -143,8 +150,14 @@ export default function CaseDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionPermissions, accountsPermissions]);
 
-  const reload = useCallback(() => {
-    api.get(`/cases/${id}`).then((res) => setData(res.data));
+  const reload = useCallback(async () => {
+    try {
+      const res = await api.get(`/cases/${id}`);
+      setData(res.data);
+    } catch (error) {
+      console.error("Failed to reload case:", error);
+      throw error;
+    }
   }, [id]);
 
   useEffect(() => {
@@ -331,6 +344,7 @@ const overviewGridStyle: CSSProperties = {
  * to its own top-level "Timeline" tab (see HearingTimeline below), independently
  * permission-gated from Overview, so it no longer renders inside this component.
  */
+
 function Overview({
   data,
   staff,
@@ -348,6 +362,7 @@ function Overview({
   const [description, setDescription] = useState(data.description ?? "");
   const [practiceArea, setPracticeArea] = useState(data.practiceArea ?? "");
   const [caseType, setCaseType] = useState(data.caseType ?? "");
+  const [courtNumber, setCourtNumber] = useState(data.courtNumber ?? "");
   const [courtName, setCourtName] = useState(data.courtName ?? "");
   const [oppositeCounsel, setOppositeCounsel] = useState(data.oppositeCounsel ?? "");
   const [oppositeParty, setOppositeParty] = useState(data.oppositeParty ?? "");
@@ -358,20 +373,23 @@ function Overview({
   async function handleSave(e: FormEvent) {
     e.preventDefault();
     setError(null);
+
     try {
       await api.patch(`/cases/${data.id}`, {
         stage: stage || undefined,
         description: description || undefined,
         practiceArea,
         caseType: caseType || undefined,
+        courtNumber: courtNumber || undefined,
         courtName: courtName || undefined,
         oppositeCounsel: oppositeCounsel || undefined,
         oppositeParty: oppositeParty || undefined,
         department: department || undefined,
         title: title || undefined,
       });
+
       setEditing(false);
-      onChanged();
+      await onChanged();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to update case details"));
     }
@@ -385,8 +403,6 @@ function Overview({
           <Field label="Case Number" value={data.matterNumber} />
           <Field label="Cause Title" value={data.title} />
           <Field label="Court Name" value={data.courtName} />
-          {/* New Case form simplification (2026-08-11) — "Court No." entered at
-           * creation; shown here read-only so it isn't invisible after creation. */}
           <Field label="Court No." value={data.courtNumber} />
           <Field label="Case Stage" value={data.stage} />
           <Field label="Practice Area" value={data.practiceArea} />
@@ -408,8 +424,14 @@ function Overview({
           <Field label="Opposite Party" value={data.oppositeParty} />
           <Field label="Department" value={data.department} />
         </div>
+
         {auth?.role === "MANAGING_PARTNER" && (
-          <ReassignPartnerControl caseId={data.id} currentPartnerId={data.partner.id} staff={staff} onChanged={onChanged} />
+          <ReassignPartnerControl
+            caseId={data.id}
+            currentPartnerId={data.partner.id}
+            staff={staff}
+            onChanged={onChanged}
+          />
         )}
       </div>
 
@@ -419,19 +441,33 @@ function Overview({
 
       <div className="card">
         <h3>Description</h3>
-        <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{data.description || "—"}</p>
-        {canEdit && !editing && <button onClick={() => setEditing(true)}>Edit Case Details</button>}
+        <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+          {data.description || "—"}
+        </p>
+
+        {canEdit && !editing && (
+          <button onClick={() => setEditing(true)}>
+            Edit Case Details
+          </button>
+        )}
       </div>
 
       {canEdit && editing && (
         <div className="card">
           <h3>Edit Case Details</h3>
+
           <form onSubmit={handleSave}>
             <div className="form-grid">
               <div>
                 <label htmlFor="caseStage">Case Stage</label>
-                <SearchableSelect id="caseStage" category="CASE_STAGE" value={stage} onChange={setStage} />
+                <SearchableSelect
+                  id="caseStage"
+                  category="CASE_STAGE"
+                  value={stage}
+                  onChange={setStage}
+                />
               </div>
+
               <div>
                 <label htmlFor="courtNameEdit">Court Name</label>
                 <SearchableSelect
@@ -441,18 +477,31 @@ function Overview({
                   onChange={setCourtName}
                 />
               </div>
-            </div>
-            <div className="form-grid">
+
               <div>
-              <label htmlFor="CaseTitle">Case Title</label>
-              <input
-                id="CaseTitle"
-                type="text"
-                value={title}
-                onChange={(e) => settitle(e.target.value)}
-              />
+                <label htmlFor="courtNumberEdit">Court Number</label>
+                <input
+                  id="courtNumberEdit"
+                  type="text"
+                  value={courtNumber}
+                  onChange={(e) => setCourtNumber(e.target.value)}
+                  placeholder="Enter Court Number"
+                />
               </div>
             </div>
+
+            <div className="form-grid">
+              <div>
+                <label htmlFor="CaseTitle">Case Title</label>
+                <input
+                  id="CaseTitle"
+                  type="text"
+                  value={title}
+                  onChange={(e) => settitle(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="form-grid">
               <div>
                 <label htmlFor="practiceAreaEdit">Practice Area</label>
@@ -464,6 +513,7 @@ function Overview({
                   required
                 />
               </div>
+
               <div>
                 <label htmlFor="caseTypeEdit">Case Type</label>
                 <SearchableSelect
@@ -474,6 +524,7 @@ function Overview({
                 />
               </div>
             </div>
+
             <div className="form-grid">
               <div>
                 <label htmlFor="oppositeCounselEdit">Opposite Counsel</label>
@@ -484,6 +535,7 @@ function Overview({
                   onChange={setOppositeCounsel}
                 />
               </div>
+
               <div>
                 <label htmlFor="oppositePartyEdit">Opposite Party</label>
                 <SearchableSelect
@@ -494,6 +546,7 @@ function Overview({
                 />
               </div>
             </div>
+
             <label htmlFor="departmentEdit">Department</label>
             <SearchableSelect
               id="departmentEdit"
@@ -501,6 +554,7 @@ function Overview({
               value={department}
               onChange={setDepartment}
             />
+
             <label htmlFor="descriptionEdit">Description</label>
             <textarea
               id="descriptionEdit"
@@ -508,11 +562,14 @@ function Overview({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+
             {error && <p className="error-text">{error}</p>}
+
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <button className="primary" type="submit">
                 Save
               </button>
+
               <button type="button" onClick={() => setEditing(false)}>
                 Cancel
               </button>
@@ -523,6 +580,7 @@ function Overview({
     </div>
   );
 }
+
 
 /** Milestone 1 (Version 1.0 completion, SRD Section 10.1 — "Case reassignment
  * workflow (Partner-only) with audit trail"). Managing-Partner-only, matching the
@@ -780,11 +838,11 @@ function HearingTimeline({ hearings }: { hearings: CaseDetailData["hearings"] })
       <div style={overviewGridStyle}>
         <Field
           label="Previous Hearing"
-          value={previousHearing ? new Date(previousHearing.hearingDate).toLocaleString() : null}
+          value={previousHearing ? new Date(previousHearing.hearingDate).toLocaleDateString("en-IN") : null}
         />
         <Field
           label="Next Hearing"
-          value={nextHearing ? new Date(nextHearing.hearingDate).toLocaleString() : null}
+          value={nextHearing ? new Date(nextHearing.hearingDate).toLocaleDateString("en-IN") : null}
         />
       </div>
       {hearings.length > 0 && (
@@ -807,7 +865,7 @@ function HearingTimeline({ hearings }: { hearings: CaseDetailData["hearings"] })
             <tbody>
               {sortedDesc.map((h) => (
                 <tr key={h.id}>
-                  <td>{new Date(h.hearingDate).toLocaleString()}</td>
+                  <td>{new Date(h.hearingDate).toLocaleDateString("en-IN")}</td>
                   <td>{h.courtName ?? "—"}</td>
                   <td>{h.purpose ?? "—"}</td>
                   <td>
@@ -824,6 +882,12 @@ function HearingTimeline({ hearings }: { hearings: CaseDetailData["hearings"] })
   );
 }
 
+
+
+
+
+
+
 function Documents({
   caseId,
   documents,
@@ -831,41 +895,211 @@ function Documents({
 }: {
   caseId: string;
   documents: CaseDetailData["documents"];
-  onChanged: () => void;
+  onChanged: () => void | Promise<void>;
 }) {
   const { auth } = useAuth();
+
   const canDelete = !!auth && CASE_EDITOR_ROLES.includes(auth.role);
+
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Pleadings");
   const [confidentiality, setConfidentiality] = useState("INTERNAL");
-  const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
 
-  /** Step 2 — Soft Delete & Recycle Bin: moves the document to the Recycle Bin. */
-  async function handleDelete(documentId: string, docTitle: string) {
-    if (!window.confirm(`Move document "${docTitle}" to the Recycle Bin?`)) return;
-    await api.delete(`/documents/${documentId}`);
-    onChanged();
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const [uploading, setUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [fileActionId, setFileActionId] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<{
+    blob: Blob;
+    fileName: string;
+    kind: "pdf" | "docx" | "image" | "text" | "xlsx" | "unsupported";
+    text?: string;
+    rows?: string[][];
+    sheetNames?: string[];
+  } | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  // Hide deleted documents immediately while the parent refreshes.
+  const [hiddenDocumentIds, setHiddenDocumentIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`hiddenDocuments:${caseId}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const visibleDocuments = documents.filter(
+    (doc) => !hiddenDocumentIds.includes(doc.id)
+  );
+
+  // View and Download
+  async function handleFileAction(
+    versionId: string,
+    fileName: string,
+    action: "view" | "download"
+  ) {
+    setError(null);
+    setSuccess(null);
+    setFileActionId(`${versionId}-${action}`);
+
+    try {
+      const endpoint =
+        `/documents/versions/${versionId}/download` +
+        (action === "view" ? "?inline=true" : "");
+
+      const response = await api.get<Blob>(endpoint, {
+        responseType: "blob",
+      });
+
+      const blob = new Blob([response.data], {
+        type: response.data.type || "application/octet-stream",
+      });
+
+      if (action === "download") {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName || "document";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+        return;
+      }
+
+      const extension = fileName.split(".").pop()?.toLowerCase() || "";
+      let kind: "pdf" | "docx" | "image" | "text" | "xlsx" | "unsupported" = "unsupported";
+      let text: string | undefined;
+      let rows: string[][] | undefined;
+      let sheetNames: string[] | undefined;
+
+      if (extension === "pdf") {
+        kind = "pdf";
+      } else if (extension === "docx") {
+        kind = "docx";
+      } else if (["jpg", "jpeg", "png", "gif", "webp", "bmp"].includes(extension)) {
+        kind = "image";
+      } else if (["txt", "csv", "log"].includes(extension)) {
+        kind = "text";
+        text = await blob.text();
+      } else if (["xlsx", "xls"].includes(extension)) {
+        kind = "xlsx";
+        const workbook = XLSX.read(await blob.arrayBuffer(), { type: "array" });
+        sheetNames = workbook.SheetNames;
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        rows = firstSheet
+          ? (XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" }) as unknown[][]).map((row) =>
+            row.map((cell) => String(cell ?? ""))
+          )
+          : [];
+      }
+
+      setPreviewFile({ blob, fileName, kind, text, rows, sheetNames });
+    } catch (err) {
+      setError(getErrorMessage(err, `Unable to ${action} document`));
+    } finally {
+      setFileActionId(null);
+    }
   }
 
-  async function handleUpload(e: FormEvent) {
+  // Create and release temporary URLs for PDF and image previews.
+  useEffect(() => {
+    if (!previewFile || !["pdf", "image"].includes(previewFile.kind)) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = window.URL.createObjectURL(previewFile.blob);
+    setPreviewUrl(url);
+    return () => window.URL.revokeObjectURL(url);
+  }, [previewFile]);
+
+  // Render DOCX files in the preview panel.
+  useEffect(() => {
+    if (previewFile?.kind !== "docx" || !previewRef.current) return;
+    const container = previewRef.current;
+    container.innerHTML = "";
+    renderAsync(previewFile.blob, container).catch((err) => {
+      console.error("DOCX preview failed:", err);
+      setError("Unable to preview this Word document. Please download it instead.");
+    });
+  }, [previewFile]);
+
+  // Delete document
+
+  async function handleDelete(documentId: string, docTitle: string) {
+    const confirmed = window.confirm(
+      `Hide document "${docTitle}" from the list?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setError(null);
+      setSuccess(null);
+      setDeletingId(documentId);
+
+      const updatedIds = [
+        ...new Set([...hiddenDocumentIds, documentId]),
+      ];
+
+      localStorage.setItem(
+        `hiddenDocuments:${caseId}`,
+        JSON.stringify(updatedIds)
+      );
+
+      setHiddenDocumentIds(updatedIds);
+
+      setSuccess("Document hidden successfully.");
+    } catch (err) {
+      setError("Unable to hide document.");
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+
+  // Upload document
+  async function handleUpload(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!file) return setError("Choose a file to upload");
+
+    if (!file) {
+      setError("Please choose a file to upload.");
+      return;
+    }
+
     setError(null);
+    setSuccess(null);
     setUploading(true);
+
     try {
       const form = new FormData();
+
       form.append("file", file);
       form.append("title", title);
       form.append("category", category);
       form.append("confidentiality", confidentiality);
-      await api.post(`/cases/${caseId}/documents`, form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+
+      await api.post(`/cases/${caseId}/documents`, form);
+
       setFile(null);
       setTitle("");
-      onChanged();
+
+      const fileInput = document.getElementById(
+        "file"
+      ) as HTMLInputElement | null;
+
+      if (fileInput) {
+        fileInput.value = "";
+      }
+
+      await onChanged();
+
+      setSuccess("Document uploaded successfully.");
     } catch (err) {
       setError(getErrorMessage(err, "Upload failed"));
     } finally {
@@ -875,14 +1109,22 @@ function Documents({
 
   return (
     <div>
+      {/* Upload Document */}
       <div className="card">
         <h3>Upload Document</h3>
+
         <form onSubmit={handleUpload}>
           <div className="form-grid">
             <div>
               <label htmlFor="docTitle">Title</label>
-              <input id="docTitle" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <input
+                id="docTitle"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                required
+              />
             </div>
+
             <div>
               <label htmlFor="docCategory">Category / Tag</label>
               <SearchableSelect
@@ -894,6 +1136,7 @@ function Documents({
               />
             </div>
           </div>
+
           <label htmlFor="confidentiality">Confidentiality</label>
           <select
             id="confidentiality"
@@ -903,17 +1146,35 @@ function Documents({
             <option value="INTERNAL">Internal only</option>
             <option value="CLIENT_VISIBLE">Client visible</option>
           </select>
+
           <label htmlFor="file">File</label>
-          <input id="file" type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required />
+          <input
+            id="file"
+            type="file"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            required
+          />
+
           {error && <p className="error-text">{error}</p>}
-          <button className="primary" type="submit" disabled={uploading}>
-            {uploading ? "Uploading…" : "Upload"}
+
+          {success && <p className="success-text">{success}</p>}
+
+          <button
+            className="primary"
+            type="submit"
+            disabled={uploading}
+          >
+            {uploading ? "Uploading..." : "Upload"}
           </button>
         </form>
       </div>
 
+      {/* Documents List */}
       <div className="card">
         <h3>Documents</h3>
+
+        {error && <p className="error-text">{error}</p>}
+
         <div className="table-scroll">
           <table>
             <thead>
@@ -922,28 +1183,112 @@ function Documents({
                 <th>Category</th>
                 <th>Confidentiality</th>
                 <th>Latest Version</th>
-                {canDelete && <th></th>}
+                <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
-              {documents.map((d) => (
-                <tr key={d.id}>
-                  <td>{d.title}</td>
-                  <td>{d.category}</td>
-                  <td>{d.confidentiality === "CLIENT_VISIBLE" ? "Client visible" : "Internal"}</td>
-                  <td>
-                    v{d.versions[0]?.versionNumber ?? 1} — {d.versions[0]?.fileName}
-                  </td>
-                  {canDelete && (
+              {visibleDocuments.map((d) => {
+                const latestVersion = d.versions[0];
+                const fileName = latestVersion?.fileName || d.title;
+
+                const viewId = latestVersion
+                  ? `${latestVersion.id}-view`
+                  : "";
+
+                const downloadId = latestVersion
+                  ? `${latestVersion.id}-download`
+                  : "";
+
+                return (
+                  <tr key={d.id}>
+                    <td>{d.title}</td>
+
+                    <td>{d.category}</td>
+
                     <td>
-                      <button onClick={() => handleDelete(d.id, d.title)}>Delete</button>
+                      {d.confidentiality === "CLIENT_VISIBLE"
+                        ? "Client visible"
+                        : "Internal"}
                     </td>
-                  )}
-                </tr>
-              ))}
-              {documents.length === 0 && (
+
+                    <td>
+                      {latestVersion
+                        ? `v${latestVersion.versionNumber} — ${fileName}`
+                        : "No version available"}
+                    </td>
+
+                    <td>
+                      <div className="document-actions">
+                        {/* View */}
+                        <button
+                          type="button"
+                          disabled={
+                            !latestVersion ||
+                            fileActionId === viewId ||
+                            fileActionId === downloadId ||
+                            deletingId === d.id
+                          }
+                          onClick={() => {
+                            if (latestVersion) {
+                              handleFileAction(
+                                latestVersion.id,
+                                fileName,
+                                "view"
+                              );
+                            }
+                          }}
+                        >
+                          {fileActionId === viewId ? "Opening..." : "View"}
+                        </button>
+
+                        {/* Download */}
+                        <button
+                          type="button"
+                          disabled={
+                            !latestVersion ||
+                            fileActionId === viewId ||
+                            fileActionId === downloadId ||
+                            deletingId === d.id
+                          }
+                          onClick={() => {
+                            if (latestVersion) {
+                              handleFileAction(
+                                latestVersion.id,
+                                fileName,
+                                "download"
+                              );
+                            }
+                          }}
+                        >
+                          {fileActionId === downloadId
+                            ? "Downloading..."
+                            : "Download"}
+                        </button>
+
+                        {/* Delete */}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            disabled={
+                              deletingId === d.id || !!fileActionId
+                            }
+                            onClick={() => handleDelete(d.id, d.title)}
+                          >
+                            {deletingId === d.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {visibleDocuments.length === 0 && (
                 <tr>
-                  <td colSpan={canDelete ? 5 : 4} className="muted">
+                  <td colSpan={5} className="muted">
                     No documents uploaded yet.
                   </td>
                 </tr>
@@ -952,9 +1297,115 @@ function Documents({
           </table>
         </div>
       </div>
+
+      {previewFile && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Preview ${previewFile.fileName}`}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: "min(1100px, 98vw)",
+              height: "min(900px, 94vh)",
+              background: "#fff",
+              color: "#222",
+              borderRadius: 8,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                padding: "12px 16px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                borderBottom: "1px solid #ddd",
+              }}
+            >
+              <strong style={{ overflowWrap: "anywhere" }}>{previewFile.fileName}</strong>
+              <button type="button" onClick={() => setPreviewFile(null)}>Close</button>
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto", padding: 16 }}>
+              {previewFile.kind === "pdf" && previewUrl && (
+                <iframe
+                  title={previewFile.fileName}
+                  src={previewUrl}
+                  style={{ width: "100%", height: "100%", minHeight: 500, border: 0 }}
+                />
+              )}
+
+              {previewFile.kind === "image" && previewUrl && (
+                <div style={{ height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
+                  <img
+                    src={previewUrl}
+                    alt={previewFile.fileName}
+                    style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
+                  />
+                </div>
+              )}
+
+              {previewFile.kind === "docx" && (
+                <div ref={previewRef} style={{ background: "#fff", color: "#222", minHeight: "100%" }} />
+              )}
+
+              {previewFile.kind === "text" && (
+                <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontFamily: "monospace" }}>
+                  {previewFile.text}
+                </pre>
+              )}
+
+              {previewFile.kind === "xlsx" && (
+                <div>
+                  <p style={{ marginTop: 0 }}>Sheet: {previewFile.sheetNames?.[0] || "Empty workbook"}</p>
+                  <div style={{ overflow: "auto" }}>
+                    <table style={{ borderCollapse: "collapse", width: "100%" }}>
+                      <tbody>
+                        {(previewFile.rows || []).map((row, rowIndex) => (
+                          <tr key={rowIndex}>
+                            {row.map((cell, cellIndex) =>
+                              rowIndex === 0 ? (
+                                <th key={cellIndex} style={{ border: "1px solid #ccc", padding: 8, textAlign: "left", background: "#f3f3f3" }}>{cell}</th>
+                              ) : (
+                                <td key={cellIndex} style={{ border: "1px solid #ccc", padding: 8 }}>{cell}</td>
+                              )
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {previewFile.kind === "unsupported" && (
+                <p>This file type cannot be previewed here. Please use Download to open it in a compatible application.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+
+
+
 
 interface WorkingOnCaseEmployee {
   id: string;
@@ -1000,199 +1451,7 @@ function WorkingOnCaseTable({ employees }: { employees: WorkingOnCaseEmployee[] 
   );
 }
 
-// function Tasks({
-//   caseId,
-//   tasks,
-//   staff,
-//   onChanged,
-// }: {
-//   caseId: string;
-//   tasks: CaseDetailData["tasks"];
-//   staff: StaffMember[];
-//   onChanged: () => void;
-// }) {
-//   const { auth } = useAuth();
-//   const canDelete = !!auth && CASE_EDITOR_ROLES.includes(auth.role);
-//   const [title, setTitle] = useState("");
-//   const [assignedToId, setAssignedToId] = useState("");
-//   const [priority, setPriority] = useState("MEDIUM");
-//   const [dueDate, setDueDate] = useState("");
-//   const [error, setError] = useState<string | null>(null);
 
-//   /**
-//    * Step 1 revision (item 9), enhanced in the Step 1 second revision (item 5) —
-//    * Smart Task Assignment: informational only, never blocks the assignment; surfaces
-//    * who's already on this case, with their task counts on it (assigned/pending) and
-//    * role, so the Managing Partner can decide whether to add another person or lean on
-//    * someone already covering the matter. Computed entirely from the case's own task
-//    * list already in hand — no extra fetch.
-//    */
-//   const currentlyWorking = Array.from(
-//     tasks.reduce((byEmployee, t) => {
-//       const existing = byEmployee.get(t.assignedTo.id) ?? {
-//         name: t.assignedTo.name,
-//         role: t.assignedTo.role,
-//         assigned: 0,
-//         pending: 0,
-//       };
-//       existing.assigned += 1;
-//       if (t.status === "PENDING" || t.status === "IN_PROGRESS") existing.pending += 1;
-//       byEmployee.set(t.assignedTo.id, existing);
-//       return byEmployee;
-//     }, new Map<string, { name: string; role: string; assigned: number; pending: number }>())
-//   ).map(([id, info]) => ({ id, ...info }));
-
-//   async function handleCreate(e: FormEvent) {
-//     e.preventDefault();
-//     if (!assignedToId) return setError("Select an assignee");
-//     setError(null);
-//     try {
-//       await api.post(`/cases/${caseId}/tasks`, {
-//         title,
-//         assignedToId,
-//         priority,
-//         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
-//       });
-//       setTitle("");
-//       onChanged();
-//     } catch (err) {
-//       setError(getErrorMessage(err, "Failed to create task"));
-//     }
-//   }
-
-//   async function updateStatus(taskId: string, status: string) {
-//     await api.patch(`/tasks/${taskId}`, { status });
-//     onChanged();
-//   }
-
-//   /** Step 1 revision (item 1) — task reassignment; the previous UI had no way to
-//    * change an assignee at all once a task was created. */
-//   async function reassign(taskId: string, newAssigneeId: string) {
-//     await api.patch(`/tasks/${taskId}`, { assignedToId: newAssigneeId });
-//     onChanged();
-//   }
-
-//   /** Step 2 — Soft Delete & Recycle Bin: moves the task to the Recycle Bin. */
-//   async function handleDelete(taskId: string, taskTitle: string) {
-//     if (!window.confirm(`Move task "${taskTitle}" to the Recycle Bin?`)) return;
-//     await api.delete(`/tasks/${taskId}`);
-//     onChanged();
-//   }
-
-//   return (
-//     <div>
-//       <div className="card">
-//         <h3>Assign Task</h3>
-//         <WorkingOnCaseTable employees={currentlyWorking} />
-//         <form onSubmit={handleCreate}>
-//           <div className="form-grid">
-//             <div>
-//               <label htmlFor="taskTitle">Title</label>
-//               <input id="taskTitle" value={title} onChange={(e) => setTitle(e.target.value)} required />
-//             </div>
-//             <div>
-//               <label htmlFor="assignee">Assign To</label>
-//               <select
-//                 id="assignee"
-//                 value={assignedToId}
-//                 onChange={(e) => setAssignedToId(e.target.value)}
-//                 required
-//               >
-//                 <option value="">Select…</option>
-//                 {staff.map((s) => (
-//                   <option key={s.id} value={s.id}>
-//                     {s.name}
-//                   </option>
-//                 ))}
-//               </select>
-//             </div>
-//           </div>
-//           <div className="form-grid">
-//             <div>
-//               <label htmlFor="priority">Priority</label>
-//               <select id="priority" value={priority} onChange={(e) => setPriority(e.target.value)}>
-//                 <option value="LOW">Low</option>
-//                 <option value="MEDIUM">Medium</option>
-//                 <option value="HIGH">High</option>
-//                 <option value="URGENT">Urgent</option>
-//               </select>
-//             </div>
-//             <div>
-//               <label htmlFor="dueDate">Due Date</label>
-//               <input id="dueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-//             </div>
-//           </div>
-//           {error && <p className="error-text">{error}</p>}
-//           <button className="primary" type="submit">
-//             Create Task
-//           </button>
-//         </form>
-//       </div>
-
-//       <div className="card">
-//         <h3>Tasks</h3>
-//         <WorkingOnCaseTable employees={currentlyWorking} />
-//         <div className="table-scroll">
-//         <table>
-//           <thead>
-//             <tr>
-//               <th>Title</th>
-//               <th>Assignee</th>
-//               <th>Priority</th>
-//               <th>Status</th>
-//               <th>Due</th>
-//               <th></th>
-//               {canDelete && <th></th>}
-//             </tr>
-//           </thead>
-//           <tbody>
-//             {tasks.map((t) => (
-//               <tr key={t.id}>
-//                 <td>
-//                   <Link to={`/tasks/${t.id}`}>{t.title}</Link>
-//                 </td>
-//                 <td>
-//                   <select value={t.assignedToId} onChange={(e) => reassign(t.id, e.target.value)}>
-//                     {staff.map((s) => (
-//                       <option key={s.id} value={s.id}>
-//                         {s.name}
-//                       </option>
-//                     ))}
-//                   </select>
-//                 </td>
-//                 <td>{t.priority}</td>
-//                 <td>
-//                   <span className="badge">{t.status.replaceAll("_", " ")}</span>
-//                 </td>
-//                 <td>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—"}</td>
-//                 <td>
-//                   <select value={t.status} onChange={(e) => updateStatus(t.id, e.target.value)}>
-//                     <option value="PENDING">Pending</option>
-//                     <option value="IN_PROGRESS">In Progress</option>
-//                     <option value="COMPLETED">Completed</option>
-//                   </select>
-//                 </td>
-//                 {canDelete && (
-//                   <td>
-//                     <button onClick={() => handleDelete(t.id, t.title)}>Delete</button>
-//                   </td>
-//                 )}
-//               </tr>
-//             ))}
-//             {tasks.length === 0 && (
-//               <tr>
-//                 <td colSpan={canDelete ? 7 : 6} className="muted">
-//                   No tasks yet.
-//                 </td>
-//               </tr>
-//             )}
-//           </tbody>
-//         </table>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
 
 function Tasks({
   caseId,
@@ -1636,6 +1895,7 @@ function Tasks({
   );
 }
 
+
 function Hearings({
   caseId,
   hearings,
@@ -1648,9 +1908,7 @@ function Hearings({
   const { auth } = useAuth();
   const canManage = !!auth && HEARING_MANAGER_ROLES.includes(auth.role);
 
-  /** Step 1 revision (item 6) — the backend allows only one SCHEDULED hearing per
-   * case, so if one already exists we reschedule it in place instead of offering a
-   * second "Schedule" form. */
+  // Only one scheduled hearing is allowed per case.
   const upcoming = hearings.find((h) => h.status === "SCHEDULED");
 
   const [hearingDate, setHearingDate] = useState("");
@@ -1659,14 +1917,16 @@ function Hearings({
   const [judgeName, setJudgeName] = useState("");
   const [purpose, setPurpose] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const [outcomeFor, setOutcomeFor] = useState<string | null>(null);
   const [outcomeNotes, setOutcomeNotes] = useState("");
   const [nextHearingDate, setNextHearingDate] = useState("");
 
+  // Load the existing scheduled hearing details.
   useEffect(() => {
     if (upcoming) {
-      setHearingDate(upcoming.hearingDate.slice(0, 16));
+      setHearingDate(upcoming.hearingDate.slice(0, 10));
       setCourtName(upcoming.courtName ?? "");
       setCourtHall(upcoming.courtHall ?? "");
       setJudgeName(upcoming.judgeName ?? "");
@@ -1681,43 +1941,70 @@ function Hearings({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcoming?.id]);
 
+  // Schedule or reschedule hearing.
   async function handleSchedule(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setSaving(true);
+
     try {
       const payload = {
-        hearingDate: hearingDate ? new Date(hearingDate).toISOString() : undefined,
+        hearingDate: hearingDate
+          ? new Date(`${hearingDate}T00:00:00`).toISOString()
+          : undefined,
         courtName: courtName || undefined,
         courtHall: courtHall || undefined,
         judgeName: judgeName || undefined,
         purpose: purpose || undefined,
       };
+
       if (upcoming) {
         await api.patch(`/hearings/${upcoming.id}`, payload);
       } else {
         await api.post(`/cases/${caseId}/hearings`, payload);
       }
+
       onChanged();
     } catch (err) {
-      setError(getErrorMessage(err, upcoming ? "Failed to reschedule hearing" : "Failed to schedule hearing"));
+      setError(
+        getErrorMessage(
+          err,
+          upcoming
+            ? "Failed to reschedule hearing"
+            : "Failed to schedule hearing"
+        )
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
+  // Record hearing outcome.
   async function handleRecordOutcome(e: FormEvent) {
     e.preventDefault();
     if (!outcomeFor) return;
+
     setError(null);
+    setSaving(true);
+
     try {
       await api.patch(`/hearings/${outcomeFor}/outcome`, {
         outcomeNotes: outcomeNotes || undefined,
-        nextHearingDate: nextHearingDate ? new Date(nextHearingDate).toISOString() : undefined,
+        nextHearingDate: nextHearingDate
+          ? new Date(`${nextHearingDate}T00:00:00`).toISOString()
+          : undefined,
       });
+
       setOutcomeFor(null);
       setOutcomeNotes("");
       setNextHearingDate("");
       onChanged();
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to record hearing outcome"));
+      setError(
+        getErrorMessage(err, "Failed to record hearing outcome")
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -1725,19 +2012,25 @@ function Hearings({
     <div>
       {canManage && (
         <div className="card">
-          <h3>{upcoming ? "Reschedule Upcoming Hearing" : "Schedule Hearing"}</h3>
+          <h3>
+            {upcoming
+              ? "Reschedule Upcoming Hearing"
+              : "Schedule Hearing"}
+          </h3>
+
           <form onSubmit={handleSchedule}>
             <div className="form-grid">
               <div>
-                <label htmlFor="hearingDate">Date &amp; Time</label>
+                <label htmlFor="hearingDate">Hearing Date</label>
                 <input
                   id="hearingDate"
-                  type="datetime-local"
+                  type="date"
                   value={hearingDate}
                   onChange={(e) => setHearingDate(e.target.value)}
                   required
                 />
               </div>
+
               <div>
                 <label htmlFor="hearingCourt">Court</label>
                 <SearchableSelect
@@ -1747,11 +2040,19 @@ function Hearings({
                   onChange={setCourtName}
                 />
               </div>
+
               <div>
-                <label htmlFor="hearingCourtHall">Court Hall / Room No.</label>
-                <input id="hearingCourtHall" value={courtHall} onChange={(e) => setCourtHall(e.target.value)} />
+                <label htmlFor="hearingCourtHall">
+                  Court Hall / Room No.
+                </label>
+                <input
+                  id="hearingCourtHall"
+                  value={courtHall}
+                  onChange={(e) => setCourtHall(e.target.value)}
+                />
               </div>
             </div>
+
             <div className="form-grid">
               <div>
                 <label htmlFor="hearingJudge">Judge</label>
@@ -1762,6 +2063,7 @@ function Hearings({
                   onChange={setJudgeName}
                 />
               </div>
+
               <div>
                 <label htmlFor="hearingPurpose">Purpose</label>
                 <SearchableSelect
@@ -1772,9 +2074,19 @@ function Hearings({
                 />
               </div>
             </div>
+
             {error && <p className="error-text">{error}</p>}
-            <button className="primary" type="submit">
-              {upcoming ? "Save Reschedule" : "Schedule Hearing"}
+
+            <button
+              className="primary"
+              type="submit"
+              disabled={saving}
+            >
+              {saving
+                ? "Saving..."
+                : upcoming
+                  ? "Save Reschedule"
+                  : "Schedule Hearing"}
             </button>
           </form>
         </div>
@@ -1782,6 +2094,7 @@ function Hearings({
 
       <div className="card">
         <h3>Hearings</h3>
+
         <div className="table-scroll">
           <table>
             <thead>
@@ -1795,30 +2108,49 @@ function Hearings({
                 {canManage && <th></th>}
               </tr>
             </thead>
+
             <tbody>
               {hearings.map((h) => (
                 <tr key={h.id}>
-                  <td>{new Date(h.hearingDate).toLocaleString()}</td>
+                  <td>
+                    {new Date(h.hearingDate).toLocaleDateString("en-IN")}
+                  </td>
+
                   <td>{h.courtName ?? "—"}</td>
                   <td>{h.courtHall ?? "—"}</td>
                   <td>{h.purpose ?? "—"}</td>
+
                   <td>
                     <span className="badge">{h.status}</span>
                   </td>
+
                   <td>{h.outcomeNotes ?? "—"}</td>
+
                   {canManage && (
                     <td>
                       {h.status === "SCHEDULED" &&
                         (outcomeFor === h.id ? null : (
-                          <button onClick={() => setOutcomeFor(h.id)}>Record Outcome</button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOutcomeFor(h.id);
+                              setError(null);
+                            }}
+                          >
+                            Record Outcome
+                          </button>
                         ))}
                     </td>
                   )}
                 </tr>
               ))}
+
               {hearings.length === 0 && (
                 <tr>
-                  <td colSpan={canManage ? 6 : 5} className="muted">
+                  <td
+                    colSpan={canManage ? 7 : 6}
+                    className="muted"
+                  >
                     No hearings scheduled yet.
                   </td>
                 </tr>
@@ -1828,9 +2160,11 @@ function Hearings({
         </div>
       </div>
 
+     
       {canManage && outcomeFor && (
         <div className="card">
           <h3>Record Hearing Outcome</h3>
+
           <form onSubmit={handleRecordOutcome}>
             <label htmlFor="outcomeNotes">Outcome Notes</label>
             <input
@@ -1838,27 +2172,82 @@ function Hearings({
               value={outcomeNotes}
               onChange={(e) => setOutcomeNotes(e.target.value)}
             />
-            <label htmlFor="nextHearingDate">Next Hearing Date (optional)</label>
+
+            <label htmlFor="nextHearingDate">
+              Next Hearing Date (optional)
+            </label>
             <input
               id="nextHearingDate"
-              type="datetime-local"
+              type="date"
               value={nextHearingDate}
               onChange={(e) => setNextHearingDate(e.target.value)}
             />
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <button className="primary" type="submit">
-                Save Outcome
+
+            {error && (
+              <p className="error-text">{error}</p>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                marginTop: 8,
+              }}
+            >
+              <button
+                className="primary"
+                type="submit"
+                disabled={saving}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                {saving && (
+                  <span
+                    style={{
+                      width: 14,
+                      height: 14,
+                      border: "2px solid currentColor",
+                      borderRightColor: "transparent",
+                      borderRadius: "50%",
+                      animation: "outcomeSpin 0.7s linear infinite",
+                    }}
+                  />
+                )}
+
+                {saving ? "Saving..." : "Save Outcome"}
               </button>
-              <button type="button" onClick={() => setOutcomeFor(null)}>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOutcomeFor(null);
+                  setError(null);
+                }}
+                disabled={saving}
+              >
                 Cancel
               </button>
             </div>
           </form>
+
+          <style>
+            {`
+        @keyframes outcomeSpin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+      `}
+          </style>
         </div>
       )}
     </div>
   );
 }
+
 
 function Notes({
   caseId,
@@ -1932,4 +2321,4 @@ function Notes({
       </div>
     </div>
   );
-}
+};

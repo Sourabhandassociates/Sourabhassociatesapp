@@ -1,3 +1,4 @@
+
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api/client";
@@ -13,11 +14,7 @@ interface TimeLogRow {
   invoiced: boolean;
   user: { id: string; name: string };
 }
-/** Simplified Case Expense Entry (2026-08-17) — `description` added; rows now come
- * from GET /cases/:caseId/billing-expenses/expenses (accountsService.listAccountsExpenses
- * filtered by caseId), the exact same Expense table the pre-existing Case → Billing →
- * Expenses flow always wrote to, so a case's older, category-based expenses and its
- * newer, quick-added ones appear side by side in one unified history. */
+
 interface ExpenseRow {
   id: string;
   date: string;
@@ -28,13 +25,16 @@ interface ExpenseRow {
   invoiced: boolean;
   incurredBy: { id: string; name: string };
 }
+
 type PaymentStatus = "PENDING" | "PARTIALLY_PAID" | "PAID" | "OVERDUE";
+
 const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   PENDING: "Pending",
   PARTIALLY_PAID: "Partially Paid",
   PAID: "Paid",
   OVERDUE: "Overdue",
 };
+
 interface InvoiceRow {
   id: string;
   invoiceNumber: string;
@@ -44,73 +44,188 @@ interface InvoiceRow {
   issueDate: string;
   dueDate: string | null;
 }
+
 interface ClientLink {
   client: { id: string; clientId: string; name: string };
   partyRole: string;
 }
 
-/** Milestone 2 (Version 1.0 completion, SRD Section 16 — Billing & Invoicing). One of
- * the Case Detail tabs the SRD names directly (Section 6.2: "Overview | Documents |
- * Tasks | Hearings | Billing/Expenses | Timeline/Notes"). Each section independently
- * loads via its own permission-gated endpoint and hides itself on a 403 rather than
- * relying on the Case Detail's own (broader) access check — Office Staff and other
- * roles without billing access simply never see this tab at all (CaseDetail.tsx).
- */
-export function Billing({ caseId, clients }: { caseId: string; clients: ClientLink[] }) {
-  const [timeLogs, setTimeLogs] = useState<TimeLogRow[] | null>(null);
-  const [expenses, setExpenses] = useState<ExpenseRow[] | null>(null);
-  const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null);
-
-  const loadTimeLogs = useCallback(() => {
-    api
-      .get(`/cases/${caseId}/time-logs`)
-      .then((res) => setTimeLogs(res.data))
-      .catch(() => setTimeLogs(null));
-  }, [caseId]);
-  /** Simplified Case Expense Entry (2026-08-17) — switched from the legacy
-   * /cases/:caseId/expenses (expenses.service.ts, untouched, still used nowhere
-   * else) to the new /cases/:caseId/billing-expenses/expenses, which returns
-   * every Expense row for this case regardless of which flow created it. */
-  const loadExpenses = useCallback(() => {
-    api
-      .get(`/cases/${caseId}/billing-expenses/expenses`)
-      .then((res) => setExpenses(res.data))
-      .catch(() => setExpenses(null));
-  }, [caseId]);
-  const loadInvoices = useCallback(() => {
-    api
-      .get("/invoices", { params: { caseId } })
-      .then((res) => setInvoices(res.data))
-      .catch(() => setInvoices(null));
-  }, [caseId]);
-
-  useEffect(() => {
-    loadTimeLogs();
-    loadExpenses();
-    loadInvoices();
-  }, [loadTimeLogs, loadExpenses, loadInvoices]);
-
+/* Reusable inline loader — no external CSS required. */
+function InlineLoader({ message = "Loading..." }: { message?: string }) {
   return (
-    <div>
-      {timeLogs && <TimeLogSection caseId={caseId} timeLogs={timeLogs} onChanged={loadTimeLogs} />}
-      {expenses && <ExpenseSection caseId={caseId} expenses={expenses} onChanged={loadExpenses} />}
-      {(timeLogs || expenses) && (
-        <CreateInvoiceSection
-          caseId={caseId}
-          clients={clients}
-          timeLogs={(timeLogs ?? []).filter((t) => !t.invoiced && t.billable)}
-          expenses={(expenses ?? []).filter((e) => !e.invoiced && e.billableToClient)}
-          onChanged={() => {
-            loadTimeLogs();
-            loadExpenses();
-            loadInvoices();
-          }}
-        />
-      )}
-      {invoices && <InvoiceListSection invoices={invoices} />}
+    <div
+      style={{
+        minHeight: 150,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+      }}
+    >
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          border: "3px solid var(--color-border-strong)",
+          borderTop: "3px solid var(--color-primary)",
+          borderRadius: "50%",
+          animation: "billingLoaderSpin 0.8s linear infinite",
+        }}
+      />
+
+      <style>
+        {`
+          @keyframes billingLoaderSpin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}
+      </style>
+
+      <p className="muted" style={{ margin: 0 }}>
+        {message}
+      </p>
     </div>
   );
 }
+
+/* Inline button spinner. */
+function ButtonLoader() {
+  return (
+    <>
+      <span
+        style={{
+          display: "inline-block",
+          width: 14,
+          height: 14,
+          border: "2px solid currentColor",
+          borderRightColor: "transparent",
+          borderRadius: "50%",
+          animation: "billingLoaderSpin 0.7s linear infinite",
+        }}
+      />
+      <style>
+        {`
+          @keyframes billingLoaderSpin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}
+      </style>
+    </>
+  );
+}
+
+export function Billing({
+  caseId,
+  clients,
+}: {
+  caseId: string;
+  clients: ClientLink[];
+}) {
+  const [timeLogs, setTimeLogs] = useState<TimeLogRow[] | null>(null);
+  const [expenses, setExpenses] = useState<ExpenseRow[] | null>(null);
+  const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadTimeLogs = useCallback(async () => {
+    try {
+      const res = await api.get(`/cases/${caseId}/time-logs`);
+      setTimeLogs(res.data);
+    } catch {
+      setTimeLogs(null);
+    }
+  }, [caseId]);
+
+  const loadExpenses = useCallback(async () => {
+    try {
+      const res = await api.get(
+        `/cases/${caseId}/billing-expenses/expenses`
+      );
+      setExpenses(res.data);
+    } catch {
+      setExpenses(null);
+    }
+  }, [caseId]);
+
+  const loadInvoices = useCallback(async () => {
+    try {
+      const res = await api.get("/invoices", {
+        params: { caseId },
+      });
+      setInvoices(res.data);
+    } catch {
+      setInvoices(null);
+    }
+  }, [caseId]);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+
+    await Promise.all([
+      loadTimeLogs(),
+      loadExpenses(),
+      loadInvoices(),
+    ]);
+
+    setLoading(false);
+  }, [loadTimeLogs, loadExpenses, loadInvoices]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  if (loading) {
+    return (
+      <div className="card">
+        <InlineLoader message="Loading billing information..." />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {timeLogs !== null && (
+        <TimeLogSection
+          caseId={caseId}
+          timeLogs={timeLogs}
+          onChanged={loadTimeLogs}
+        />
+      )}
+
+      {expenses !== null && (
+        <ExpenseSection
+          caseId={caseId}
+          expenses={expenses}
+          onChanged={loadExpenses}
+        />
+      )}
+
+      {(timeLogs !== null || expenses !== null) && (
+        <CreateInvoiceSection
+          caseId={caseId}
+          clients={clients}
+          timeLogs={(timeLogs ?? []).filter(
+            (t) => !t.invoiced && t.billable
+          )}
+          expenses={(expenses ?? []).filter(
+            (e) => !e.invoiced && e.billableToClient
+          )}
+          onChanged={loadAll}
+        />
+      )}
+
+      {invoices !== null && (
+        <InvoiceListSection invoices={invoices} />
+      )}
+    </div>
+  );
+}
+
+/* TIME LOGS */
 
 function TimeLogSection({
   caseId,
@@ -119,17 +234,22 @@ function TimeLogSection({
 }: {
   caseId: string;
   timeLogs: TimeLogRow[];
-  onChanged: () => void;
+  onChanged: () => void | Promise<void>;
 }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
   const [hours, setHours] = useState("");
   const [billable, setBillable] = useState(true);
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setSaving(true);
+
     try {
       await api.post(`/cases/${caseId}/time-logs`, {
         date: new Date(date).toISOString(),
@@ -137,17 +257,21 @@ function TimeLogSection({
         billable,
         description: description || undefined,
       });
+
       setHours("");
       setDescription("");
-      onChanged();
+      await onChanged();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to log time"));
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <div className="card">
       <h3>Time Logs</h3>
+
       <div className="table-scroll">
         <table>
           <thead>
@@ -160,6 +284,7 @@ function TimeLogSection({
               <th>Invoiced</th>
             </tr>
           </thead>
+
           <tbody>
             {timeLogs.map((t) => (
               <tr key={t.id}>
@@ -171,6 +296,7 @@ function TimeLogSection({
                 <td>{t.invoiced ? "Yes" : "No"}</td>
               </tr>
             ))}
+
             {timeLogs.length === 0 && (
               <tr>
                 <td colSpan={6} className="muted">
@@ -181,12 +307,20 @@ function TimeLogSection({
           </tbody>
         </table>
       </div>
+
       <form onSubmit={handleAdd} style={{ marginTop: 12 }}>
         <div className="form-grid">
           <div>
             <label htmlFor="tlDate">Date</label>
-            <input id="tlDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <input
+              id="tlDate"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+            />
           </div>
+
           <div>
             <label htmlFor="tlHours">Hours</label>
             <input
@@ -200,42 +334,53 @@ function TimeLogSection({
             />
           </div>
         </div>
+
         <label htmlFor="tlDescription">Description</label>
-        <input id="tlDescription" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-          <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} />
+        <input
+          id="tlDescription"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginTop: 8,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={billable}
+            onChange={(e) => setBillable(e.target.checked)}
+          />
           Billable
         </label>
+
         {error && <p className="error-text">{error}</p>}
-        <button className="primary" type="submit" style={{ marginTop: 8 }}>
-          Log Time
+
+        <button
+          className="primary"
+          type="submit"
+          style={{
+            marginTop: 8,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+          disabled={saving}
+        >
+          {saving && <ButtonLoader />}
+          {saving ? "Logging Time..." : "Log Time"}
         </button>
       </form>
     </div>
   );
 }
 
-/**
- * Simplified Case Expense Entry (2026-08-17) — §14/§15/§18. The Add Expense form
- * now asks for exactly four things: Date, Description, Amount, and a read-only
- * Entered By (the logged-in user's own name — display only; the backend derives
- * the real value from the authenticated actor and ignores anything the client
- * might send, so there is nothing to spoof here even if this display were
- * tampered with). No Category/Payment Mode/Vendor/Client/Case/receipt field.
- * Posts to POST /cases/:caseId/billing-expenses/expenses, gated by
- * CASE_BILLING_EXPENSES.VIEW + EXPENSES.CREATE — Billing/Expenses and Accounts
- * are deliberately independent security domains (2026-08-17 authorization
- * correction), so recording a case expense never requires any ACCOUNTS.*
- * permission. A category is still stored (the database column remains
- * required), defaulted server-side to "Case Expense" since this form has no
- * category field. Delete goes through the pre-existing, unmodified
- * DELETE /expenses/:id (EXPENSES.DELETE — expenses.routes.ts) — reused as-is,
- * not the Accounts module's delete endpoint. The "Billable to Client"/Category
- * columns from the pre-existing, more detailed flow still display for any older
- * row that has them (still visible, still usable for invoicing further down
- * this tab), they're just no longer asked of the user creating a NEW case
- * expense from this quick form.
- */
+/* EXPENSES */
+
 function ExpenseSection({
   caseId,
   expenses,
@@ -243,42 +388,69 @@ function ExpenseSection({
 }: {
   caseId: string;
   expenses: ExpenseRow[];
-  onChanged: () => void;
+  onChanged: () => void | Promise<void>;
 }) {
   const { auth } = useAuth();
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+
+  const [date, setDate] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setSaving(true);
+
     try {
-      await api.post(`/cases/${caseId}/billing-expenses/expenses`, {
-        date: new Date(date).toISOString(),
-        description,
-        amount: Number(amount),
-      });
+      await api.post(
+        `/cases/${caseId}/billing-expenses/expenses`,
+        {
+          date: new Date(date).toISOString(),
+          description,
+          amount: Number(amount),
+        }
+      );
+
       setDescription("");
       setAmount("");
-      onChanged();
+      await onChanged();
     } catch (err) {
       setError(getErrorMessage(err, "Failed to log expense"));
+    } finally {
+      setSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Delete this expense?")) return;
-    await api.delete(`/expenses/${id}`);
-    onChanged();
+
+    setError(null);
+    setDeletingId(id);
+
+    try {
+      await api.delete(`/expenses/${id}`);
+      await onChanged();
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to delete expense"));
+    } finally {
+      setDeletingId(null);
+    }
   }
 
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const total = expenses.reduce(
+    (sum, e) => sum + e.amount,
+    0
+  );
 
   return (
     <div className="card">
       <h3>Expenses</h3>
+
       <div className="table-scroll">
         <table>
           <thead>
@@ -290,6 +462,7 @@ function ExpenseSection({
               <th></th>
             </tr>
           </thead>
+
           <tbody>
             {expenses.map((e) => (
               <tr key={e.id}>
@@ -297,11 +470,28 @@ function ExpenseSection({
                 <td>{e.description || e.category}</td>
                 <td>{e.amount}</td>
                 <td>{e.incurredBy.name}</td>
+
                 <td>
-                  {!e.invoiced && <button onClick={() => handleDelete(e.id)}>Delete</button>}
+                  {!e.invoiced && (
+                    <button
+                      onClick={() => handleDelete(e.id)}
+                      disabled={deletingId !== null}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      {deletingId === e.id && <ButtonLoader />}
+                      {deletingId === e.id
+                        ? "Deleting..."
+                        : "Delete"}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
+
             {expenses.length === 0 && (
               <tr>
                 <td colSpan={5} className="muted">
@@ -310,12 +500,20 @@ function ExpenseSection({
               </tr>
             )}
           </tbody>
+
           {expenses.length > 0 && (
             <tfoot>
               <tr>
-                <td colSpan={2} style={{ textAlign: "right", fontWeight: 600 }}>
+                <td
+                  colSpan={2}
+                  style={{
+                    textAlign: "right",
+                    fontWeight: 600,
+                  }}
+                >
                   Total Case Expenses
                 </td>
+
                 <td style={{ fontWeight: 600 }}>{total}</td>
                 <td colSpan={2}></td>
               </tr>
@@ -323,13 +521,22 @@ function ExpenseSection({
           )}
         </table>
       </div>
+
       <form onSubmit={handleAdd} style={{ marginTop: 12 }}>
         <h4 style={{ margin: "0 0 8px" }}>Add Expense</h4>
+
         <div className="form-grid">
           <div>
             <label htmlFor="expDate">Date</label>
-            <input id="expDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <input
+              id="expDate"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+            />
           </div>
+
           <div>
             <label htmlFor="expAmount">Amount</label>
             <input
@@ -343,6 +550,7 @@ function ExpenseSection({
             />
           </div>
         </div>
+
         <label htmlFor="expDescription">Description</label>
         <input
           id="expDescription"
@@ -351,11 +559,30 @@ function ExpenseSection({
           placeholder="e.g. Court filing expense"
           required
         />
+
         <label htmlFor="expEnteredBy">Entered By</label>
-        <input id="expEnteredBy" value={auth?.name ?? ""} readOnly disabled />
+        <input
+          id="expEnteredBy"
+          value={auth?.name ?? ""}
+          readOnly
+          disabled
+        />
+
         {error && <p className="error-text">{error}</p>}
-        <button className="primary" type="submit" style={{ marginTop: 8 }}>
-          Save Expense
+
+        <button
+          className="primary"
+          type="submit"
+          style={{
+            marginTop: 8,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+          disabled={saving}
+        >
+          {saving && <ButtonLoader />}
+          {saving ? "Saving Expense..." : "Save Expense"}
         </button>
       </form>
     </div>
@@ -368,14 +595,8 @@ interface ManualLineItem {
   rate: string;
 }
 
-/** Billing bug fix (2026-08-06) — previously this whole card returned null and
- * vanished entirely whenever a case had no unbilled time logs/expenses, leaving no
- * way to create an invoice at all (the reported "not able to create a new invoice"
- * issue). The backend has always accepted free-form `manualItems` for exactly this
- * case (a fixed-fee/retainer line, or billing before any time/expense is logged);
- * the UI simply never exposed it. Now the card always renders (as long as the case
- * has a linked client to bill), with manual line items alongside the existing
- * unbilled-time/unbilled-expense pickers. */
+/* CREATE INVOICE */
+
 function CreateInvoiceSection({
   caseId,
   clients,
@@ -387,61 +608,119 @@ function CreateInvoiceSection({
   clients: ClientLink[];
   timeLogs: TimeLogRow[];
   expenses: ExpenseRow[];
-  onChanged: () => void;
+  onChanged: () => void | Promise<void>;
 }) {
-  const [clientId, setClientId] = useState(clients[0]?.client.id ?? "");
+  const [clientId, setClientId] = useState(
+    clients[0]?.client.id ?? ""
+  );
   const [dueDate, setDueDate] = useState("");
-  const [selectedTimeLogs, setSelectedTimeLogs] = useState<Record<string, string>>({});
-  const [selectedExpenses, setSelectedExpenses] = useState<Record<string, boolean>>({});
+  const [selectedTimeLogs, setSelectedTimeLogs] = useState<
+    Record<string, string>
+  >({});
+  const [selectedExpenses, setSelectedExpenses] = useState<
+    Record<string, boolean>
+  >({});
   const [manualItems, setManualItems] = useState<ManualLineItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   function addManualItem() {
-    setManualItems((items) => [...items, { description: "", quantity: "1", rate: "" }]);
+    setManualItems((items) => [
+      ...items,
+      { description: "", quantity: "1", rate: "" },
+    ]);
   }
-  function updateManualItem(index: number, field: keyof ManualLineItem, value: string) {
-    setManualItems((items) => items.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
+
+  function updateManualItem(
+    index: number,
+    field: keyof ManualLineItem,
+    value: string
+  ) {
+    setManualItems((items) =>
+      items.map((it, i) =>
+        i === index ? { ...it, [field]: value } : it
+      )
+    );
   }
+
   function removeManualItem(index: number) {
-    setManualItems((items) => items.filter((_, i) => i !== index));
+    setManualItems((items) =>
+      items.filter((_, i) => i !== index)
+    );
   }
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
     const timeLogItems = Object.entries(selectedTimeLogs)
       .filter(([, rate]) => rate)
-      .map(([timeLogId, rate]) => ({ timeLogId, rate: Number(rate) }));
+      .map(([timeLogId, rate]) => ({
+        timeLogId,
+        rate: Number(rate),
+      }));
+
     const expenseItems = Object.entries(selectedExpenses)
       .filter(([, checked]) => checked)
       .map(([expenseId]) => ({ expenseId }));
-    const filledManualItems = manualItems
-      .filter((it) => it.description.trim() && Number(it.quantity) > 0 && Number(it.rate) > 0)
-      .map((it) => ({ description: it.description.trim(), quantity: Number(it.quantity), rate: Number(it.rate) }));
 
-    if (timeLogItems.length + expenseItems.length + filledManualItems.length === 0) {
-      setError("Select at least one time entry/expense, or add a manual line item, to invoice");
+    const filledManualItems = manualItems
+      .filter(
+        (it) =>
+          it.description.trim() &&
+          Number(it.quantity) > 0 &&
+          Number(it.rate) > 0
+      )
+      .map((it) => ({
+        description: it.description.trim(),
+        quantity: Number(it.quantity),
+        rate: Number(it.rate),
+      }));
+
+    if (
+      timeLogItems.length +
+        expenseItems.length +
+        filledManualItems.length ===
+      0
+    ) {
+      setError(
+        "Select at least one time entry/expense, or add a manual line item, to invoice"
+      );
       return;
     }
+
+    setCreating(true);
+
     try {
       const res = await api.post("/invoices", {
         caseId,
         clientId,
-        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+        dueDate: dueDate
+          ? new Date(dueDate).toISOString()
+          : undefined,
         timeLogItems,
         expenseItems,
         manualItems: filledManualItems,
       });
-      setSuccess(`Draft invoice ${res.data.invoiceNumber} created.`);
+
+      setSuccess(
+        `Draft invoice ${res.data.invoiceNumber} created.`
+      );
+
       setSelectedTimeLogs({});
       setSelectedExpenses({});
       setManualItems([]);
       setDueDate("");
-      onChanged();
+
+      await onChanged();
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to create invoice"));
+      setError(
+        getErrorMessage(err, "Failed to create invoice")
+      );
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -449,7 +728,9 @@ function CreateInvoiceSection({
     return (
       <div className="card">
         <h3>Create Draft Invoice</h3>
-        <p className="muted">Link a client to this case before creating an invoice.</p>
+        <p className="muted">
+          Link a client to this case before creating an invoice.
+        </p>
       </div>
     );
   }
@@ -457,40 +738,78 @@ function CreateInvoiceSection({
   return (
     <div className="card">
       <h3>Create Draft Invoice</h3>
+
       <form onSubmit={handleCreate}>
         <div className="form-grid">
           <div>
             <label htmlFor="invoiceClient">Bill to</label>
-            <select id="invoiceClient" value={clientId} onChange={(e) => setClientId(e.target.value)} required>
+            <select
+              id="invoiceClient"
+              value={clientId}
+              onChange={(e) => setClientId(e.target.value)}
+              required
+            >
               {clients.map((c) => (
-                <option key={c.client.id} value={c.client.id}>
+                <option
+                  key={c.client.id}
+                  value={c.client.id}
+                >
                   {c.client.clientId} — {c.client.name}
                 </option>
               ))}
             </select>
           </div>
+
           <div>
-            <label htmlFor="invoiceDueDate">Due Date (optional)</label>
-            <input id="invoiceDueDate" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <label htmlFor="invoiceDueDate">
+              Due Date (optional)
+            </label>
+            <input
+              id="invoiceDueDate"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
           </div>
         </div>
+
         {timeLogs.length > 0 && (
           <>
-            <p className="muted" style={{ marginTop: 12, marginBottom: 4 }}>
+            <p
+              className="muted"
+              style={{ marginTop: 12, marginBottom: 4 }}
+            >
               Unbilled time entries — enter a rate to include
             </p>
+
             {timeLogs.map((t) => (
-              <div key={t.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+              <div
+                key={t.id}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  marginBottom: 4,
+                }}
+              >
                 <span style={{ flex: 1 }}>
-                  {new Date(t.date).toLocaleDateString()} — {t.user.name} — {t.hours}h {t.description ?? ""}
+                  {new Date(t.date).toLocaleDateString()} —{" "}
+                  {t.user.name} — {t.hours}h{" "}
+                  {t.description ?? ""}
                 </span>
+
                 <input
                   type="number"
                   step="0.01"
                   placeholder="Rate/hr"
                   style={{ width: 100 }}
                   value={selectedTimeLogs[t.id] ?? ""}
-                  onChange={(e) => setSelectedTimeLogs((s) => ({ ...s, [t.id]: e.target.value }))}
+                  onChange={(e) =>
+                    setSelectedTimeLogs((s) => ({
+                      ...s,
+                      [t.id]: e.target.value,
+                    }))
+                  }
                 />
               </div>
             ))}
@@ -499,33 +818,72 @@ function CreateInvoiceSection({
 
         {expenses.length > 0 && (
           <>
-            <p className="muted" style={{ marginTop: 12, marginBottom: 4 }}>
+            <p
+              className="muted"
+              style={{ marginTop: 12, marginBottom: 4 }}
+            >
               Unbilled billable expenses
             </p>
+
             {expenses.map((e) => (
-              <label key={e.id} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+              <label
+                key={e.id}
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  marginBottom: 4,
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={!!selectedExpenses[e.id]}
-                  onChange={(ev) => setSelectedExpenses((s) => ({ ...s, [e.id]: ev.target.checked }))}
+                  onChange={(ev) =>
+                    setSelectedExpenses((s) => ({
+                      ...s,
+                      [e.id]: ev.target.checked,
+                    }))
+                  }
                 />
-                {new Date(e.date).toLocaleDateString()} — {e.category} — {e.amount}
+
+                {new Date(e.date).toLocaleDateString()} —{" "}
+                {e.category} — {e.amount}
               </label>
             ))}
           </>
         )}
 
-        <p className="muted" style={{ marginTop: 12, marginBottom: 4 }}>
-          Manual line items (e.g. a fixed fee or retainer, unrelated to logged time/expenses)
+        <p
+          className="muted"
+          style={{ marginTop: 12, marginBottom: 4 }}
+        >
+          Manual line items (e.g. a fixed fee or retainer,
+          unrelated to logged time/expenses)
         </p>
+
         {manualItems.map((item, i) => (
-          <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              marginBottom: 4,
+            }}
+          >
             <input
               placeholder="Description"
               style={{ flex: 1 }}
               value={item.description}
-              onChange={(e) => updateManualItem(i, "description", e.target.value)}
+              onChange={(e) =>
+                updateManualItem(
+                  i,
+                  "description",
+                  e.target.value
+                )
+              }
             />
+
             <input
               type="number"
               step="1"
@@ -533,8 +891,11 @@ function CreateInvoiceSection({
               placeholder="Qty"
               style={{ width: 70 }}
               value={item.quantity}
-              onChange={(e) => updateManualItem(i, "quantity", e.target.value)}
+              onChange={(e) =>
+                updateManualItem(i, "quantity", e.target.value)
+              }
             />
+
             <input
               type="number"
               step="0.01"
@@ -542,22 +903,50 @@ function CreateInvoiceSection({
               placeholder="Rate"
               style={{ width: 100 }}
               value={item.rate}
-              onChange={(e) => updateManualItem(i, "rate", e.target.value)}
+              onChange={(e) =>
+                updateManualItem(i, "rate", e.target.value)
+              }
             />
-            <button type="button" onClick={() => removeManualItem(i)} aria-label="Remove line item">
+
+            <button
+              type="button"
+              onClick={() => removeManualItem(i)}
+              aria-label="Remove line item"
+              disabled={creating}
+            >
               Remove
             </button>
           </div>
         ))}
-        <button type="button" onClick={addManualItem} style={{ marginTop: 4 }}>
+
+        <button
+          type="button"
+          onClick={addManualItem}
+          style={{ marginTop: 4 }}
+          disabled={creating}
+        >
           + Add Manual Line Item
         </button>
 
         {error && <p className="error-text">{error}</p>}
         {success && <p className="success-text">{success}</p>}
+
         <div>
-          <button className="primary" type="submit" style={{ marginTop: 12 }} disabled={!clientId}>
-            Create Draft Invoice
+          <button
+            className="primary"
+            type="submit"
+            style={{
+              marginTop: 12,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            disabled={!clientId || creating}
+          >
+            {creating && <ButtonLoader />}
+            {creating
+              ? "Creating Invoice..."
+              : "Create Draft Invoice"}
           </button>
         </div>
       </form>
@@ -565,10 +954,17 @@ function CreateInvoiceSection({
   );
 }
 
-function InvoiceListSection({ invoices }: { invoices: InvoiceRow[] }) {
+/* INVOICE LIST */
+
+function InvoiceListSection({
+  invoices,
+}: {
+  invoices: InvoiceRow[];
+}) {
   return (
     <div className="card">
       <h3>Invoices</h3>
+
       <div className="table-scroll">
         <table>
           <thead>
@@ -581,25 +977,42 @@ function InvoiceListSection({ invoices }: { invoices: InvoiceRow[] }) {
               <th>Due Date</th>
             </tr>
           </thead>
+
           <tbody>
             {invoices.map((inv) => (
               <tr key={inv.id} className="clickable">
                 <td>
-                  <Link to={`/invoices/${inv.id}`}>{inv.invoiceNumber}</Link>
+                  <Link to={`/invoices/${inv.id}`}>
+                    {inv.invoiceNumber}
+                  </Link>
                 </td>
+
                 <td>
                   <span className="badge">{inv.status}</span>
                 </td>
+
                 <td>
-                  <span className={`badge payment-status-${inv.paymentStatus}`}>
+                  <span
+                    className={`badge payment-status-${inv.paymentStatus}`}
+                  >
                     {PAYMENT_STATUS_LABEL[inv.paymentStatus]}
                   </span>
                 </td>
+
                 <td>{inv.total}</td>
-                <td>{new Date(inv.issueDate).toLocaleDateString()}</td>
-                <td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}</td>
+
+                <td>
+                  {new Date(inv.issueDate).toLocaleDateString()}
+                </td>
+
+                <td>
+                  {inv.dueDate
+                    ? new Date(inv.dueDate).toLocaleDateString()
+                    : "—"}
+                </td>
               </tr>
             ))}
+
             {invoices.length === 0 && (
               <tr>
                 <td colSpan={6} className="muted">

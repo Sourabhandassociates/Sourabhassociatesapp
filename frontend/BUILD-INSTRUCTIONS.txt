@@ -1,0 +1,19 @@
+S&A LEGAL FRONTEND — CLEAN BUILD PACKAGE
+
+IMPORTANT: Run commands from this frontend folder (the folder containing package.json).
+The reported JSX/React errors occur when React dependencies and React type definitions are not installed or the command is run from the wrong project folder. The package.json and package-lock.json include React, React DOM, React Router, @types/react and TypeScript.
+
+WINDOWS POWERSHELL
+1. Extract this ZIP.
+2. Open PowerShell in the extracted frontend folder.
+3. Run:
+
+   npm ci
+   npm run typecheck
+   npm run build
+
+4. If both checks succeed, upload the newly generated dist folder to your Hostinger frontend web root.
+
+If npm ci reports an installation error, do not delete package-lock.json. Send the complete npm ci error output.
+
+Do not upload node_modules. Do not upload .env files. This package does not include node_modules or a stale dist build.

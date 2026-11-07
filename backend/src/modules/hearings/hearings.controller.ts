@@ -14,12 +14,15 @@ const scheduleHearingSchema = z.object({
 
 export async function scheduleHearing(req: Request, res: Response) {
   const data = parseBody(scheduleHearingSchema, req.body);
+
   const hearing = await hearingsService.scheduleHearing(req.actor!, req.params.caseId, data);
+
   res.status(201).json(hearing);
 }
 
 export async function listHearingsForCase(req: Request, res: Response) {
   const hearings = await hearingsService.listHearingsForCase(req.actor!, req.params.caseId);
+
   res.json(hearings);
 }
 
@@ -33,7 +36,9 @@ const rescheduleHearingSchema = z.object({
 
 export async function rescheduleHearing(req: Request, res: Response) {
   const data = parseBody(rescheduleHearingSchema, req.body);
+
   const hearing = await hearingsService.rescheduleHearing(req.actor!, req.params.id, data);
+
   res.json(hearing);
 }
 
@@ -44,15 +49,33 @@ const recordOutcomeSchema = z.object({
 
 export async function recordHearingOutcome(req: Request, res: Response) {
   const data = parseBody(recordOutcomeSchema, req.body);
+
   const result = await hearingsService.recordHearingOutcome(req.actor!, req.params.id, data);
+
   res.json(result);
 }
 
+/**
+ * Hearing Calendar: return hearings in the requested date range.
+ * The Prisma query and case-field selection live in hearings.service.ts.
+ */
 export async function listHearingsInRange(req: Request, res: Response) {
-  const { startDate, endDate } = req.query as Record<string, string | undefined>;
+  const { startDate, endDate } = req.query as Record<
+    string,
+    string | undefined
+  >;
+
   if (!startDate || !endDate) {
-    throw new BadRequestError("startDate and endDate query parameters are required");
+    throw new BadRequestError(
+      "startDate and endDate query parameters are required"
+    );
   }
-  const hearings = await hearingsService.listHearingsInRange(req.actor!, startDate, endDate);
-  res.json(hearings);
+
+  const hearings = await hearingsService.listHearingsInRange(
+    req.actor!,
+    startDate,
+    endDate
+  );
+
+  return res.json(hearings);
 }

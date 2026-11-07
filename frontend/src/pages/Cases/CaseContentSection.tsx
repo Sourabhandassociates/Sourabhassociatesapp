@@ -1,30 +1,27 @@
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import { getErrorMessage } from "../../api/errorMessage";
 import { RichTextEditor } from "../../components/RichTextEditor";
 
-/**
- * Facts & Arguments case sections (2026-08-18) — one shared component for both,
- * since the two are functionally identical (a single current rich-text value
- * per Case, Edit → Save workflow, same permission-per-section shape) and differ
- * only in which field/endpoint/labels they use. `section` drives both the API
- * path (`/cases/:id/facts` or `/cases/:id/arguments`) and the response field
- * names, which the backend returns as `{ [section]: string|null,
- * [section]UpdatedAt: string|null, [section]UpdatedBy: {id,name}|null }` —
- * exactly mirroring the Prisma column names, so no per-section response
- * mapping is needed here.
- */
 interface CaseContentResponse {
   content: string | null;
   updatedAt: string | null;
   updatedBy: { id: string; name: string } | null;
 }
 
-function parseResponse(section: "facts" | "arguments", raw: Record<string, unknown>): CaseContentResponse {
+function parseResponse(
+  section: "facts" | "arguments",
+  raw: Record<string, unknown>
+): CaseContentResponse {
   return {
     content: (raw[section] as string | null) ?? null,
     updatedAt: (raw[`${section}UpdatedAt`] as string | null) ?? null,
-    updatedBy: (raw[`${section}UpdatedBy`] as { id: string; name: string } | null) ?? null,
+    updatedBy:
+      (raw[`${section}UpdatedBy`] as {
+        id: string;
+        name: string;
+      } | null) ?? null,
   };
 }
 
@@ -44,20 +41,29 @@ export function CaseContentSection({
   const [data, setData] = useState<CaseContentResponse | null>(null);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  // A ref, not state — RichTextEditor is uncontrolled and reports live HTML on
-  // every keystroke; storing it in a ref avoids re-rendering this whole section
-  // (and therefore the editor) on every character typed (§19 — explicit Save,
-  // no autosave, so nothing needs to react to this value changing mid-edit).
+  const [retryCount, setRetryCount] = useState(0);
+
   const draftHtml = useRef("");
 
-  const load = useCallback(() => {
-    api.get(`/cases/${caseId}/${section}`).then((res) => setData(parseResponse(section, res.data)));
-  }, [caseId, section]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const res = await api.get(`/cases/${caseId}/${section}`);
+      setData(parseResponse(section, res.data));
+    } catch (err) {
+      setError(getErrorMessage(err, `Failed to load ${title}`));
+    } finally {
+      setLoading(false);
+    }
+  }, [caseId, section, title]);
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, retryCount]);
 
   function startEditing() {
     draftHtml.current = data?.content ?? "";
@@ -68,10 +74,14 @@ export function CaseContentSection({
   async function handleSave() {
     setSaving(true);
     setError(null);
+
     try {
-      await api.patch(`/cases/${caseId}/${section}`, { content: draftHtml.current });
+      await api.patch(`/cases/${caseId}/${section}`, {
+        content: draftHtml.current,
+      });
+
       setEditing(false);
-      load();
+      await load();
     } catch (err) {
       setError(getErrorMessage(err, `Failed to save ${title}`));
     } finally {
@@ -79,12 +89,99 @@ export function CaseContentSection({
     }
   }
 
-  if (!data) return <p>Loading…</p>;
+  // Inline loading spinner
+  const Loader = ({ message }: { message: string }) => (
+    <div
+      style={{
+        minHeight: 160,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+      }}
+    >
+      <div
+        style={{
+          width: 34,
+          height: 34,
+          border: "3px solid var(--color-border-strong)",
+          borderTop: "3px solid var(--color-primary)",
+          borderRadius: "50%",
+          animation: "caseContentLoaderSpin 0.8s linear infinite",
+        }}
+      />
+
+      <style>
+        {`
+          @keyframes caseContentLoaderSpin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}
+      </style>
+
+      <p className="muted" style={{ margin: 0 }}>
+        {message}
+      </p>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="card">
+        <h3 style={{ margin: 0 }}>{title}</h3>
+        <Loader message={`Loading ${title.toLowerCase()}...`} />
+      </div>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <div className="card">
+        <h3 style={{ margin: 0 }}>{title}</h3>
+
+        <div
+          style={{
+            minHeight: 140,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            textAlign: "center",
+          }}
+        >
+          <p className="error-text" style={{ margin: 0 }}>
+            {error}
+          </p>
+
+          <button
+            className="primary"
+            onClick={() => setRetryCount((prev) => prev + 1)}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return null;
 
   return (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: 12,
+        }}
+      >
         <h3 style={{ margin: 0 }}>{title}</h3>
+
         {!editing && (
           <button className="secondary" onClick={startEditing}>
             {data.content ? "Edit" : addLabel}
@@ -93,7 +190,10 @@ export function CaseContentSection({
       </div>
 
       {data.updatedAt && (
-        <p className="muted" style={{ fontSize: "0.85em", marginTop: 4 }}>
+        <p
+          className="muted"
+          style={{ fontSize: "0.85em", marginTop: 4 }}
+        >
           Last updated {new Date(data.updatedAt).toLocaleString()}
           {data.updatedBy ? ` by ${data.updatedBy.name}` : ""}
         </p>
@@ -101,8 +201,6 @@ export function CaseContentSection({
 
       {editing ? (
         <div style={{ marginTop: 12 }}>
-          {/* Remounted per edit session (key) so the uncontrolled editor always
-              starts from the latest saved content, never stale in-memory state. */}
           <RichTextEditor
             key={data.content ?? ""}
             initialHtml={data.content ?? ""}
@@ -110,18 +208,64 @@ export function CaseContentSection({
               draftHtml.current = html;
             }}
           />
-          {error && <p className="error-text">{error}</p>}
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button className="primary" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+
+          {error && (
+            <p className="error-text" style={{ marginTop: 8 }}>
+              {error}
+            </p>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              marginTop: 12,
+              alignItems: "center",
+            }}
+          >
+            <button
+              className="primary"
+              onClick={handleSave}
+              disabled={saving}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {saving && (
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    border: "2px solid rgba(255,255,255,0.4)",
+                    borderTop: "2px solid white",
+                    borderRadius: "50%",
+                    animation:
+                      "caseContentLoaderSpin 0.8s linear infinite",
+                  }}
+                />
+              )}
+              {saving ? "Saving..." : "Save"}
             </button>
-            <button onClick={() => setEditing(false)} disabled={saving}>
+
+            <button
+              onClick={() => {
+                setEditing(false);
+                setError(null);
+              }}
+              disabled={saving}
+            >
               Cancel
             </button>
           </div>
         </div>
       ) : data.content ? (
-        <div className="rich-text-content" style={{ marginTop: 12 }} dangerouslySetInnerHTML={{ __html: data.content }} />
+        <div
+          className="rich-text-content"
+          style={{ marginTop: 12 }}
+          dangerouslySetInnerHTML={{ __html: data.content }}
+        />
       ) : (
         <p className="muted" style={{ marginTop: 12 }}>
           {emptyMessage}

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import { getErrorMessage } from "../api/errorMessage";
 import { useAuth } from "../context/useAuth";
 
 interface Case {
@@ -80,60 +81,166 @@ export default function Dashboard() {
   const [firmTasks, setFirmTasks] = useState<FirmTask[] | null>(null);
   const [todaysHearings, setTodaysHearings] = useState<Hearing[] | null>(null);
   const [invoices, setInvoices] = useState<InvoiceRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const requestId = useRef(0);
 
-  useEffect(() => {
-    api.get("/cases").then((res) => setCases(res.data));
-    api.get("/clients").then((res) => setClientCount(res.data.length));
-    api.get("/tasks/my").then((res) => setTasks(res.data));
+  const loadDashboard = useCallback(async () => {
+    const currentRequest = ++requestId.current;
+    setLoading(true);
+    setLoadError("");
+
+    const requests: Promise<void>[] = [
+      api.get("/cases").then((res) => setCases(res.data)),
+      api.get("/clients").then((res) => setClientCount(res.data.length)),
+      api.get("/tasks/my").then((res) => setTasks(res.data)),
+    ];
+
     if (auth?.role === "MANAGING_PARTNER") {
-      api.get("/tasks/all").then((res) => setFirmTasks(res.data));
+      requests.push(
+        api.get("/tasks/all").then((res) => setFirmTasks(res.data))
+      );
     }
-    if (auth?.role === "ASSOCIATE" || auth?.role === "JUNIOR_ASSOCIATE" || auth?.role === "OFFICE_STAFF") {
+
+    if (
+      auth?.role === "ASSOCIATE" ||
+      auth?.role === "JUNIOR_ASSOCIATE" ||
+      auth?.role === "OFFICE_STAFF"
+    ) {
       const { startDate, endDate } = todayRange();
-      api.get("/hearings", { params: { startDate, endDate } }).then((res) => setTodaysHearings(res.data));
+      requests.push(
+        api
+          .get("/hearings", { params: { startDate, endDate } })
+          .then((res) => setTodaysHearings(res.data))
+      );
     }
+
     if (auth?.role === "ACCOUNTS_TEAM") {
-      api.get("/invoices").then((res) => setInvoices(res.data));
+      requests.push(
+        api.get("/invoices").then((res) => setInvoices(res.data))
+      );
     }
+
+    const results = await Promise.allSettled(requests);
+    if (currentRequest !== requestId.current) return;
+
+    const failedRequests = results.filter(
+      (result) => result.status === "rejected"
+    );
+
+    if (failedRequests.length > 0) {
+      console.error("Some dashboard requests failed:", failedRequests);
+      setLoadError(
+        "Some dashboard information could not be loaded. Please try again."
+      );
+    }
+
+    setLoading(false);
   }, [auth?.role]);
 
+  useEffect(() => {
+    loadDashboard();
+    return () => {
+      requestId.current++;
+    };
+  }, [loadDashboard]);
+
   const activeCases = cases.filter((c) => c.status === "ACTIVE").length;
-  const pendingTasks = tasks.filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS").length;
+  const pendingTasks = tasks.filter(
+    (t) => t.status === "PENDING" || t.status === "IN_PROGRESS"
+  ).length;
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Welcome, {auth?.name}</h1>
-      </div>
-      <p className="muted" style={{ marginTop: -12, marginBottom: 20 }}>
-        {auth?.role.replaceAll("_", " ")}
-      </p>
+      <style>
+        {`@keyframes dashboardLoadingSpin { to { transform: rotate(360deg); } }`}
+      </style>
 
-      <div className="dashboard-grid">
-        <Link to="/cases" className="stat-tile" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="value">{cases.length}</div>
-          <div className="label">Total Cases</div>
-        </Link>
-        <div className="stat-tile">
-          <div className="value">{activeCases}</div>
-          <div className="label">Active Cases</div>
+      {loading ? (
+        <div
+          style={{
+            minHeight: 350,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 14,
+            padding: 30,
+          }}
+        >
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              border: "4px solid #e5e7eb",
+              borderTop: "4px solid #2563eb",
+              borderRadius: "50%",
+              animation: "dashboardLoadingSpin 0.8s linear infinite",
+            }}
+          />
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#374151" }}>
+            Loading Dashboard...
+          </div>
+          <div style={{ fontSize: 13, color: "#6b7280" }}>
+            Please wait while we fetch your dashboard information.
+          </div>
         </div>
-        <Link to="/clients" className="stat-tile" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="value">{clientCount}</div>
-          <div className="label">Client Registrations</div>
-        </Link>
-        <Link to="/tasks" className="stat-tile" style={{ textDecoration: "none", color: "inherit" }}>
-          <div className="value">{pendingTasks}</div>
-          <div className="label">My Pending Tasks</div>
-        </Link>
-      </div>
+      ) : (
+        <>
+          <div className="page-header">
+            <h1>Welcome, {auth?.name}</h1>
+          </div>
+          <p className="muted" style={{ marginTop: -12, marginBottom: 20 }}>
+            {auth?.role.replaceAll("_", " ")}
+          </p>
 
-      {firmTasks && <FirmTaskBreakdown tasks={firmTasks} />}
-      {todaysHearings && <TodaysHearings hearings={todaysHearings} />}
-      {auth?.role === "OFFICE_STAFF" && <MyTaskQueue tasks={tasks} />}
-      {invoices && <OutstandingInvoices invoices={invoices} />}
+          {loadError && (
+            <div style={{ marginBottom: 16 }}>
+              <p className="error-text">{loadError}</p>
+              <button className="primary" onClick={loadDashboard}>
+                Retry Loading Dashboard
+              </button>
+            </div>
+          )}
 
-      <AnnouncementsWidget />
+          <div className="dashboard-grid">
+            <Link
+              to="/cases"
+              className="stat-tile"
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <div className="value">{cases.length}</div>
+              <div className="label">Total Cases</div>
+            </Link>
+            <div className="stat-tile">
+              <div className="value">{activeCases}</div>
+              <div className="label">Active Cases</div>
+            </div>
+            <Link
+              to="/clients"
+              className="stat-tile"
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <div className="value">{clientCount}</div>
+              <div className="label">Client Registrations</div>
+            </Link>
+            <Link
+              to="/tasks"
+              className="stat-tile"
+              style={{ textDecoration: "none", color: "inherit" }}
+            >
+              <div className="value">{pendingTasks}</div>
+              <div className="label">My Pending Tasks</div>
+            </Link>
+          </div>
+
+          {firmTasks && <FirmTaskBreakdown tasks={firmTasks} />}
+          {todaysHearings && <TodaysHearings hearings={todaysHearings} />}
+          {auth?.role === "OFFICE_STAFF" && <MyTaskQueue tasks={tasks} />}
+          {invoices && <OutstandingInvoices invoices={invoices} />}
+          <AnnouncementsWidget />
+        </>
+      )}
     </div>
   );
 }
@@ -542,15 +649,30 @@ function AnnouncementsWidget() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [posting, setPosting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const canCompose = auth?.role === "MANAGING_PARTNER" || auth?.role === "OFFICE_STAFF";
+  const canCompose =
+    auth?.role === "MANAGING_PARTNER" || auth?.role === "OFFICE_STAFF";
   const isManagingPartner = auth?.role === "MANAGING_PARTNER";
 
-  function load() {
-    api.get("/announcements").then((res) => setAnnouncements(res.data));
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get("/announcements");
+      setAnnouncements(res.data);
+    } catch (err) {
+      console.error("Failed to load announcements:", err);
+      setError("Unable to load announcements. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
-  useEffect(() => load(), []);
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function submit() {
     if (!title.trim() || !body.trim()) return;
@@ -560,9 +682,11 @@ function AnnouncementsWidget() {
       await api.post("/announcements", { title, body });
       setTitle("");
       setBody("");
-      load();
+      await load();
     } catch (err) {
-      const message = (err as { response?: { data?: { error?: string } } }).response?.data?.error;
+      const message = (err as {
+        response?: { data?: { error?: string } };
+      }).response?.data?.error;
       setError(message ?? "Failed to post announcement");
     } finally {
       setPosting(false);
@@ -570,25 +694,35 @@ function AnnouncementsWidget() {
   }
 
   async function setActive(id: string, isActive: boolean) {
-    await api.patch(`/announcements/${id}/active`, { isActive });
-    load();
+    setError(null);
+    try {
+      await api.patch(`/announcements/${id}/active`, { isActive });
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to update announcement"));
+    }
   }
 
   async function markRead(id: string) {
-    await api.patch(`/announcements/${id}/read`);
-    load();
+    setError(null);
+    try {
+      await api.patch(`/announcements/${id}/read`);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err, "Failed to mark announcement as read"));
+    }
   }
 
-  const drafts = isManagingPartner ? announcements.filter((a) => !a.isActive) : [];
-  // "Continue to appear on the Dashboard until it expires or is archived" — the
-  // backend already excludes drafts and out-of-window announcements from a non-MP
-  // actor's list; for the Managing Partner (who sees everything, for moderation),
-  // `isEffectivelyActive` keeps the same visible feed rather than surfacing every
-  // expired/not-yet-started announcement inline here too.
+  const drafts = isManagingPartner
+    ? announcements.filter((a) => !a.isActive)
+    : [];
   const active = announcements.filter((a) => a.isEffectivelyActive);
 
   return (
     <div className="card" style={{ marginTop: 24 }}>
+      <style>
+        {`@keyframes announcementLoadingSpin { to { transform: rotate(360deg); } }`}
+      </style>
       <h3>Office Announcements</h3>
 
       {canCompose && (
@@ -596,64 +730,128 @@ function AnnouncementsWidget() {
           <div className="form-grid">
             <div>
               <label htmlFor="announcementTitle">Title</label>
-              <input id="announcementTitle" value={title} onChange={(e) => setTitle(e.target.value)} />
+              <input
+                id="announcementTitle"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
             </div>
             <div>
               <label htmlFor="announcementBody">Message</label>
-              <textarea id="announcementBody" value={body} onChange={(e) => setBody(e.target.value)} rows={2} />
+              <textarea
+                id="announcementBody"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={2}
+              />
             </div>
           </div>
-
-          {error && <p className="error-text">{error}</p>}
-          <button style={{ marginTop: 12 }} onClick={submit} disabled={posting || !title.trim() || !body.trim()}>
-            {isManagingPartner ? "Post Announcement" : "Submit for Approval"}
+          <button
+            style={{ marginTop: 12 }}
+            onClick={submit}
+            disabled={posting || !title.trim() || !body.trim()}
+          >
+            {posting
+              ? "Submitting..."
+              : isManagingPartner
+                ? "Post Announcement"
+                : "Submit for Approval"}
           </button>
         </div>
       )}
 
-      {isManagingPartner && drafts.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <h4 style={{ marginBottom: 8 }}>Pending Approval</h4>
-          {drafts.map((a) => (
-            <div key={a.id} className="card" style={{ marginBottom: 8 }}>
-              <strong>{a.title}</strong>
+      {error && <p className="error-text">{error}</p>}
+
+      {loading ? (
+        <div
+          style={{
+            minHeight: 120,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              border: "3px solid #e5e7eb",
+              borderTop: "3px solid #2563eb",
+              borderRadius: "50%",
+              animation: "announcementLoadingSpin 0.8s linear infinite",
+            }}
+          />
+          <span style={{ fontSize: 13, color: "#6b7280" }}>
+            Loading announcements...
+          </span>
+        </div>
+      ) : error && announcements.length === 0 ? (
+        <button className="primary" onClick={load}>
+          Try Again
+        </button>
+      ) : (
+        <>
+          {isManagingPartner && drafts.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ marginBottom: 8 }}>Pending Approval</h4>
+              {drafts.map((a) => (
+                <div key={a.id} className="card" style={{ marginBottom: 8 }}>
+                  <strong>{a.title}</strong>
+                  <p style={{ margin: "4px 0" }}>{a.body}</p>
+                  <p className="muted" style={{ margin: "0 0 8px" }}>
+                    By {a.createdBy.name} on {new Date(a.createdAt).toLocaleDateString()}
+                  </p>
+                  <button onClick={() => setActive(a.id, true)}>Publish</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {active.map((a) => (
+            <div
+              key={a.id}
+              className="card announcement-card"
+              style={{ marginBottom: 8 }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <Link to={`/announcements/${a.id}`} style={{ fontWeight: 600 }}>
+                  {a.title}
+                </Link>
+                {a.isReadByMe === false && <span className="badge">Unread</span>}
+              </div>
               <p style={{ margin: "4px 0" }}>{a.body}</p>
-              <p className="muted" style={{ margin: "0 0 8px" }}>
+              <p className="muted" style={{ margin: 0 }}>
                 By {a.createdBy.name} on {new Date(a.createdAt).toLocaleDateString()}
               </p>
-              <button onClick={() => setActive(a.id, true)}>Publish</button>
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                {a.isReadByMe === false && (
+                  <button className="secondary" onClick={() => markRead(a.id)}>
+                    Mark as Read
+                  </button>
+                )}
+                {isManagingPartner && (
+                  <button className="secondary" onClick={() => setActive(a.id, false)}>
+                    Archive
+                  </button>
+                )}
+              </div>
             </div>
           ))}
-        </div>
+          {active.length === 0 && (
+            <p className="muted">No announcements right now.</p>
+          )}
+        </>
       )}
-
-      {active.map((a) => (
-        <div key={a.id} className="card announcement-card" style={{ marginBottom: 8 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <Link to={`/announcements/${a.id}`} style={{ fontWeight: 600 }}>
-              {a.title}
-            </Link>
-            {a.isReadByMe === false && <span className="badge">Unread</span>}
-          </div>
-          <p style={{ margin: "4px 0" }}>{a.body}</p>
-          <p className="muted" style={{ margin: 0 }}>
-            By {a.createdBy.name} on {new Date(a.createdAt).toLocaleDateString()}
-          </p>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            {a.isReadByMe === false && (
-              <button className="secondary" onClick={() => markRead(a.id)}>
-                Mark as Read
-              </button>
-            )}
-            {isManagingPartner && (
-              <button className="secondary" onClick={() => setActive(a.id, false)}>
-                Archive
-              </button>
-            )}
-          </div>
-        </div>
-      ))}
-      {active.length === 0 && <p className="muted">No announcements right now.</p>}
     </div>
   );
 }

@@ -42,10 +42,31 @@ export async function getDocument(req: Request, res: Response) {
   res.json(document);
 }
 
+
+
 export async function downloadVersion(req: Request, res: Response) {
-  const { filePath, fileName } = await documentsService.getDownloadInfo(req.actor!, req.params.versionId);
-  res.download(filePath, fileName);
+  const { filePath, fileName } =
+    await documentsService.getDownloadInfo(
+      req.actor!,
+      req.params.versionId
+    );
+
+  const safeFileName = fileName.replace(/["\\\r\n]/g, "_");
+  const inline = req.query.inline === "true";
+
+  if (inline) {
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${safeFileName}"`
+    );
+
+    return res.sendFile(filePath);
+  }
+
+  return res.download(filePath, safeFileName);
 }
+
+
 
 export async function deleteDocument(req: Request, res: Response) {
   await documentsService.deleteDocument(req.actor!, req.params.id);

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import { useAuth } from "../../context/useAuth";
@@ -13,18 +14,24 @@ interface InvoiceRow {
   total: number;
   issueDate: string;
   dueDate: string | null;
-  /** Nullable as of the invoice-module completion pass — a "general" invoice
-   * created from /invoices/new isn't tied to any matter. */
   case: { matterNumber: string; title: string } | null;
   client: { clientId: string; name: string };
 }
 
-const STATUSES = ["", "DRAFT", "APPROVED", "SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"];
+const STATUSES = [
+  "",
+  "DRAFT",
+  "APPROVED",
+  "SENT",
+  "PARTIALLY_PAID",
+  "PAID",
+  "OVERDUE",
+];
 
-/** Billing bug-fix pass (2026-08-06) — payment-status filter tabs, distinct from the
- * "Status" dropdown above (the lifecycle status). Both combine via a plain AND, same
- * as the search box below. */
-const PAYMENT_STATUS_TABS: { key: PaymentStatus | ""; label: string }[] = [
+const PAYMENT_STATUS_TABS: {
+  key: PaymentStatus | "";
+  label: string;
+}[] = [
   { key: "", label: "All Invoices" },
   { key: "PENDING", label: "Pending Invoices" },
   { key: "PARTIALLY_PAID", label: "Partially Paid Invoices" },
@@ -39,30 +46,74 @@ const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   OVERDUE: "Overdue",
 };
 
-/** SRD Section 16.1 — Invoice List & Payment Status Screen (Section 6.8). Managing
- * Partner/Accounts Team only (BILLING.VIEW). */
 export default function InvoiceList() {
   const navigate = useNavigate();
   const { auth } = useAuth();
-  const canCreate = auth?.role === "MANAGING_PARTNER" || auth?.role === "ACCOUNTS_TEAM" || auth?.role === "ASSOCIATE";
+
+  const canCreate =
+    auth?.role === "MANAGING_PARTNER" ||
+    auth?.role === "ACCOUNTS_TEAM" ||
+    auth?.role === "ASSOCIATE";
+
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [status, setStatus] = useState("");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus | "">("");
   const [search, setSearch] = useState("");
 
-  function load(s = status, ps = paymentStatus) {
-    api
-      .get("/invoices", { params: { ...(s ? { status: s } : {}), ...(ps ? { paymentStatus: ps } : {}) } })
-      .then((res) => setInvoices(res.data));
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const requestId = useRef(0);
+
+  async function load(
+    s = status,
+    ps = paymentStatus
+  ) {
+    const currentRequest = ++requestId.current;
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await api.get("/invoices", {
+        params: {
+          ...(s ? { status: s } : {}),
+          ...(ps ? { paymentStatus: ps } : {}),
+        },
+      });
+
+      if (currentRequest !== requestId.current) return;
+
+      setInvoices(res.data);
+    } catch (err) {
+      if (currentRequest !== requestId.current) return;
+
+      console.error("Failed to load invoices:", err);
+      setError("Unable to load invoices. Please try again.");
+    } finally {
+      if (currentRequest === requestId.current) {
+        setLoading(false);
+      }
+    }
   }
-  useEffect(() => load(), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    load();
+
+    return () => {
+      requestId.current++;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const searchLower = search.trim().toLowerCase();
+
   const visibleInvoices = searchLower
     ? invoices.filter(
         (inv) =>
           inv.invoiceNumber.toLowerCase().includes(searchLower) ||
-          (inv.case?.matterNumber.toLowerCase().includes(searchLower) ?? false) ||
+          (inv.case?.matterNumber.toLowerCase().includes(searchLower) ??
+            false) ||
           inv.client.clientId.toLowerCase().includes(searchLower) ||
           inv.client.name.toLowerCase().includes(searchLower)
       )
@@ -70,10 +121,24 @@ export default function InvoiceList() {
 
   return (
     <div>
+      <style>
+        {`
+          @keyframes invoiceListSpin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}
+      </style>
+
       <div className="page-header">
         <h1>Invoices</h1>
+
         {canCreate && (
-          <button className="primary" onClick={() => navigate("/invoices/new")}>
+          <button
+            className="primary"
+            onClick={() => navigate("/invoices/new")}
+          >
             + Create New Invoice
           </button>
         )}
@@ -94,7 +159,15 @@ export default function InvoiceList() {
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", margin: "12px 0" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "flex-end",
+          margin: "12px 0",
+        }}
+      >
         <div>
           <label htmlFor="invoiceSearch">Search</label>
           <input
@@ -105,6 +178,7 @@ export default function InvoiceList() {
             style={{ maxWidth: 320 }}
           />
         </div>
+
         <div>
           <label htmlFor="statusFilter">Status</label>
           <select
@@ -139,35 +213,131 @@ export default function InvoiceList() {
               <th>Due Date</th>
             </tr>
           </thead>
+
           <tbody>
-            {visibleInvoices.map((inv) => (
-              <tr key={inv.id} className="clickable">
-                <td>
-                  <Link to={`/invoices/${inv.id}`}>{inv.invoiceNumber}</Link>
+            {loading ? (
+              <tr>
+                <td colSpan={8}>
+                  <div
+                    style={{
+                      minHeight: 220,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 14,
+                      padding: 30,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 38,
+                        height: 38,
+                        border: "4px solid #e5e7eb",
+                        borderTop: "4px solid #2563eb",
+                        borderRadius: "50%",
+                        animation: "invoiceListSpin 0.8s linear infinite",
+                      }}
+                    />
+
+                    <div
+                      style={{
+                        fontSize: 16,
+                        fontWeight: 600,
+                        color: "#374151",
+                      }}
+                    >
+                      Loading...
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: "#6b7280",
+                      }}
+                    >
+                      Please wait while we fetch your invoices.
+                    </div>
+                  </div>
                 </td>
-                <td>{inv.case?.matterNumber ?? <span className="muted">General</span>}</td>
-                <td>
-                  {inv.client.clientId} — {inv.client.name}
-                </td>
-                <td>
-                  <span className="badge">{inv.status}</span>
-                </td>
-                <td>
-                  <span className={`badge payment-status-${inv.paymentStatus}`}>
-                    {PAYMENT_STATUS_LABEL[inv.paymentStatus]}
-                  </span>
-                </td>
-                <td>{inv.total}</td>
-                <td>{new Date(inv.issueDate).toLocaleDateString()}</td>
-                <td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}</td>
               </tr>
-            ))}
-            {visibleInvoices.length === 0 && (
+            ) : error ? (
+              <tr>
+                <td colSpan={8}>
+                  <div
+                    style={{
+                      minHeight: 180,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 12,
+                      padding: 24,
+                    }}
+                  >
+                    <p style={{ color: "#dc2626", margin: 0 }}>
+                      {error}
+                    </p>
+
+                    <button
+                      className="primary"
+                      onClick={() => load()}
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ) : visibleInvoices.length === 0 ? (
               <tr>
                 <td colSpan={8} className="muted">
                   No invoices match these filters.
                 </td>
               </tr>
+            ) : (
+              visibleInvoices.map((inv) => (
+                <tr key={inv.id} className="clickable">
+                  <td>
+                    <Link to={`/invoices/${inv.id}`}>
+                      {inv.invoiceNumber}
+                    </Link>
+                  </td>
+
+                  <td>
+                    {inv.case?.matterNumber ?? (
+                      <span className="muted">General</span>
+                    )}
+                  </td>
+
+                  <td>
+                    {inv.client.clientId} — {inv.client.name}
+                  </td>
+
+                  <td>
+                    <span className="badge">{inv.status}</span>
+                  </td>
+
+                  <td>
+                    <span
+                      className={`badge payment-status-${inv.paymentStatus}`}
+                    >
+                      {PAYMENT_STATUS_LABEL[inv.paymentStatus]}
+                    </span>
+                  </td>
+
+                  <td>{inv.total}</td>
+
+                  <td>
+                    {new Date(inv.issueDate).toLocaleDateString()}
+                  </td>
+
+                  <td>
+                    {inv.dueDate
+                      ? new Date(inv.dueDate).toLocaleDateString()
+                      : "—"}
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

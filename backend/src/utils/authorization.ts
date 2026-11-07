@@ -35,7 +35,8 @@ const MATCH_NOTHING = { id: "" };
 export function caseScopeWhere(actor: AuthorizedActor) {
   const scope = resolveViewScope(actor, "CASES");
   if (scope === "ALL") return {};
-  if (scope === "ASSIGNED") return { OR: [{ partnerId: actor.sub }, { advocates: { some: { userId: actor.sub } } }] };
+  if (scope === "ASSIGNED")
+    return { OR: [{ partnerId: actor.sub }, { advocates: { some: { userId: actor.sub } } }] };
   return MATCH_NOTHING;
 }
 
@@ -45,13 +46,30 @@ export function caseScopeWhere(actor: AuthorizedActor) {
  * Partner's Recycle Bin (a separate, deliberately unscoped query path) can see it.
  */
 export async function assertCaseAccess(actor: AccessTokenPayload, caseId: string) {
-  const caseRecord = await prisma.case.findFirst({
-    where: { id: caseId, deletedAt: null, ...caseScopeWhere(actor) },
+  const scope = resolveViewScope(actor as AuthorizedActor, "CASES");
+
+  console.log("DOCUMENT ACCESS DEBUG:", {
+    actorId: actor.sub,
+    actorRole: actor.role,
+    caseId,
+    viewScope: scope,
+    hasViewAll: (actor as AuthorizedActor).effectivePermissions?.has("CASES.VIEW_ALL"),
   });
+
+  const caseRecord = await prisma.case.findFirst({
+    where: {
+      id: caseId,
+      deletedAt: null,
+      ...caseScopeWhere(actor as AuthorizedActor),
+    },
+  });
+
+  console.log("CASE FOUND:", !!caseRecord);
+
   if (!caseRecord) {
-    await logOutOfScopeAttempt("Case", caseId, actor);
     throw new NotFoundError("Case not found");
   }
+
   return caseRecord;
 }
 
@@ -112,10 +130,22 @@ async function assertScopelessAccountsDocumentAccess(actor: AuthorizedActor, doc
  */
 export async function assertDocumentAccess(actor: AuthorizedActor, documentId: string) {
   const document = await prisma.document.findFirst({
-    where: { id: documentId, deletedAt: null },
-    select: { id: true, caseId: true, clientId: true, title: true },
+    where: {
+      id: documentId,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      caseId: true,
+      clientId: true,
+      title: true,
+    },
   });
-  if (!document) throw new NotFoundError("Document not found");
+
+  if (!document) {
+    throw new NotFoundError("Document not found");
+  }
+
   if (document.caseId) {
     await assertCaseAccess(actor, document.caseId);
   } else if (document.clientId) {
@@ -123,6 +153,7 @@ export async function assertDocumentAccess(actor: AuthorizedActor, documentId: s
   } else {
     await assertScopelessAccountsDocumentAccess(actor, document.id);
   }
+
   return document;
 }
 

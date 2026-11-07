@@ -42,7 +42,9 @@ export async function scheduleHearing(actor: AccessTokenPayload, caseId: string,
     },
   });
 
-  await recordAuditLog(actor, "HEARING_SCHEDULED", "Hearing", hearing.id, { entityName: caseRecord.matterNumber });
+  await recordAuditLog(actor, "HEARING_SCHEDULED", "Hearing", hearing.id, {
+    entityName: caseRecord.matterNumber,
+  });
 
   // Milestone 3 (SRD Section 17) — "upcoming hearing" trigger, fired at scheduling time
   // (an event-driven notification, not a scheduled reminder job — this app has no
@@ -80,7 +82,11 @@ export interface RescheduleHearingInput {
  * so "only one active Next Hearing per case" is trivially maintained (it's the same
  * row) and the old date never lingers on the calendar.
  */
-export async function rescheduleHearing(actor: AccessTokenPayload, hearingId: string, data: RescheduleHearingInput) {
+export async function rescheduleHearing(
+  actor: AccessTokenPayload,
+  hearingId: string,
+  data: RescheduleHearingInput
+) {
   const hearing = await assertHearingAccess(actor, hearingId);
   if (hearing.status !== "SCHEDULED") {
     throw new ConflictError("Only an upcoming (SCHEDULED) hearing can be rescheduled");
@@ -97,7 +103,13 @@ export async function rescheduleHearing(actor: AccessTokenPayload, hearingId: st
     },
   });
 
-  const changes = diffObjects(hearing, updated, ["hearingDate", "courtName", "courtHall", "judgeName", "purpose"]);
+  const changes = diffObjects(hearing, updated, [
+    "hearingDate",
+    "courtName",
+    "courtHall",
+    "judgeName",
+    "purpose",
+  ]);
   await recordAuditLog(actor, "HEARING_RESCHEDULED", "Hearing", hearingId, changes ? { changes } : undefined);
 
   await notifyCaseTeam(
@@ -121,7 +133,11 @@ export interface RecordOutcomeInput {
  * recording an outcome marks this row COMPLETED and, if a next date is supplied,
  * creates a new SCHEDULED row for it — that new row IS the updated next hearing.
  */
-export async function recordHearingOutcome(actor: AccessTokenPayload, hearingId: string, data: RecordOutcomeInput) {
+export async function recordHearingOutcome(
+  actor: AccessTokenPayload,
+  hearingId: string,
+  data: RecordOutcomeInput
+) {
   const hearing = await assertHearingAccess(actor, hearingId);
 
   const [updated, nextHearing] = await prisma.$transaction(async (tx) => {
@@ -157,16 +173,55 @@ export async function recordHearingOutcome(actor: AccessTokenPayload, hearingId:
  * SRD Section 15 — Hearing Calendar: all hearings across every case the actor can see,
  * in a date range, for the month/week/day calendar view and per-date click-to-view list.
  */
-export async function listHearingsInRange(actor: AccessTokenPayload, startDate: string, endDate: string) {
-  return prisma.hearing.findMany({
+
+
+export async function listHearingsInRange(
+  actor: AccessTokenPayload,
+  startDate: string,
+  endDate: string
+) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime())
+  ) {
+    throw new Error("Invalid hearing date range");
+  }
+
+  const hearings = await prisma.hearing.findMany({
     where: {
-      hearingDate: { gte: new Date(startDate), lte: new Date(endDate) },
-      case: { ...caseScopeWhere(actor), deletedAt: null },
+      hearingDate: {
+        gte: start,
+        lte: end,
+      },
+      case: {
+        ...caseScopeWhere(actor),
+        deletedAt: null,
+      },
     },
-    include: { case: { select: { id: true, matterNumber: true, title: true } } },
-    orderBy: { hearingDate: "asc" },
+    include: {
+      case: {
+        select: {
+          id: true,
+          matterNumber: true,
+          courtCaseNumber: true,
+          title: true,
+          caseType: true,
+          courtNumber: true,
+          courtName: true,
+        },
+      },
+    },
+    orderBy: {
+      hearingDate: "asc",
+    },
   });
+
+  return hearings;
 }
+
 
 /**
  * Step 1 revision (Managing Partner review, items 5/6) — "Previous Hearing" is the

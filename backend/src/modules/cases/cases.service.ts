@@ -256,27 +256,91 @@ function redactSectionsForActor<
   };
 }
 
+
+
 export async function getCase(actor: AuthorizedActor, caseId: string) {
   await assertCaseAccess(actor, caseId);
 
   const caseRecord = await prisma.case.findUnique({
     where: { id: caseId },
     include: {
-      partner: { select: SAFE_PARTNER_SELECT },
-      advocates: { include: { user: { select: SAFE_USER_SELECT } } },
-      clients: { include: { client: { select: SAFE_CLIENT_SELECT } } },
-      documents: { include: { versions: { orderBy: { versionNumber: "desc" }, take: 1 } } },
-      // Step 1 revision (item 9) — Smart Task Assignment needs to show who's already
-      // working on this case, so tasks now come with their assignee's name attached.
-      tasks: { include: { assignedTo: { select: SAFE_USER_SELECT } } },
-      notes: { include: { author: { select: SAFE_USER_SELECT } }, orderBy: { createdAt: "asc" } },
-      hearings: { orderBy: { hearingDate: "asc" } },
-      tags: { orderBy: { tag: "asc" } },
+      partner: {
+        select: SAFE_PARTNER_SELECT,
+      },
+      advocates: {
+        include: {
+          user: {
+            select: SAFE_USER_SELECT,
+          },
+        },
+      },
+      clients: {
+        include: {
+          client: {
+            select: SAFE_CLIENT_SELECT,
+          },
+        },
+      },
+
+      // Only load active documents.
+      documents: {
+        where: {
+          deletedAt: null,
+        },
+        include: {
+          versions: {
+            orderBy: {
+              versionNumber: "desc",
+            },
+            take: 1,
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
+
+      tasks: {
+        include: {
+          assignedTo: {
+            select: SAFE_USER_SELECT,
+          },
+        },
+      },
+      notes: {
+        include: {
+          author: {
+            select: SAFE_USER_SELECT,
+          },
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      },
+      hearings: {
+        orderBy: {
+          hearingDate: "asc",
+        },
+      },
+      tags: {
+        orderBy: {
+          tag: "asc",
+        },
+      },
     },
   });
-  if (!caseRecord) return caseRecord;
-  return redactSectionsForActor(actor, redactForRole(actor, caseRecord));
+
+  if (!caseRecord) {
+    return caseRecord;
+  }
+
+  return redactSectionsForActor(
+    actor,
+    redactForRole(actor, caseRecord)
+  );
 }
+
+
 
 export interface UpdateCaseInput {
   title?: string;
