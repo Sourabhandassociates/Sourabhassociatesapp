@@ -325,6 +325,21 @@ const hearings: PermissionDefinition[] = [
  * per the feature's own explicit "reuse if an equivalent permission already
  * exists" instruction. It previously gated nothing at runtime (defined but never
  * checked by any route); it's now enforced by `GET /cases/:caseId/notes`. */
+/**
+ * Cause List access is managed independently from the Hearing Calendar.
+ * Defaults mirror HEARINGS.VIEW so existing staff access is preserved, while
+ * the Managing Partner can grant or revoke Cause List access separately.
+ */
+const causeList: PermissionDefinition[] = [
+  {
+    key: "CAUSE_LIST.VIEW",
+    module: "CAUSE_LIST",
+    action: "VIEW",
+    label: "View Cause List",
+    defaults: { MANAGING_PARTNER: true, ASSOCIATE: true, JUNIOR_ASSOCIATE: true, OFFICE_STAFF: true, ACCOUNTS_TEAM: false },
+  },
+];
+
 const caseNotes: PermissionDefinition[] = [
   {
     key: "CASE_NOTES.VIEW",
@@ -1055,6 +1070,7 @@ export const PERMISSION_CATALOGUE: PermissionDefinition[] = [
   ...clients,
   ...tasks,
   ...hearings,
+  ...causeList,
   ...caseNotes,
   ...documents,
   ...calendar,

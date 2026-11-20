@@ -227,3 +227,68 @@ export async function setUserStatus(req: Request, res: Response) {
   }
   res.json({ id: user.id, status: user.status });
 }
+
+
+export async function deleteUser(req: Request, res: Response) {
+  if (!req.actor || req.actor.actorType !== "USER") {
+    throw new ForbiddenError("Staff access only");
+  }
+
+  const userId = req.params.userId;
+
+  if (req.actor.sub === userId) {
+    throw new ForbiddenError("You cannot delete your own account.");
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!target) {
+    res.status(404).json({ message: "User not found" });
+    return;
+  }
+
+  if (
+    target.role === "MANAGING_PARTNER" &&
+    target.status === "ACTIVE"
+  ) {
+    const activePartners = await prisma.user.count({
+      where: {
+        role: "MANAGING_PARTNER",
+        status: "ACTIVE",
+      },
+    });
+
+    if (activePartners <= 1) {
+      throw new ForbiddenError(
+        "Cannot delete the last active Managing Partner account."
+      );
+    }
+  }
+
+ await prisma.$transaction(async (tx) => {
+  await tx.userSession.deleteMany({
+    where: { userId },
+  });
+
+  await tx.user.delete({
+    where: { id: userId },
+  });
+});
+  await recordAuditLog(
+    req.actor,
+    "USER_DELETED",
+    "User",
+    target.id,
+    {
+      entityName: target.name,
+      details: `Deleted user: ${target.email}, role=${target.role}`,
+    }
+  );
+
+  res.status(200).json({
+    message: "User deleted successfully",
+    id: target.id,
+  });
+}

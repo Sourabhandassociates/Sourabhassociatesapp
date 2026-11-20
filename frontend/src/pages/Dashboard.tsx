@@ -1,3 +1,4 @@
+import { AppLoader } from "../components/AppLoader";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
@@ -168,21 +169,9 @@ export default function Dashboard() {
             padding: 30,
           }}
         >
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              border: "4px solid #e5e7eb",
-              borderTop: "4px solid #2563eb",
-              borderRadius: "50%",
-              animation: "dashboardLoadingSpin 0.8s linear infinite",
-            }}
-          />
-          <div style={{ fontSize: 16, fontWeight: 600, color: "#374151" }}>
-            Loading Dashboard...
-          </div>
+          <AppLoader size="lg" />
           <div style={{ fontSize: 13, color: "#6b7280" }}>
-            Please wait while we fetch your dashboard information.
+            
           </div>
         </div>
       ) : (
@@ -198,7 +187,7 @@ export default function Dashboard() {
             <div style={{ marginBottom: 16 }}>
               <p className="error-text">{loadError}</p>
               <button className="primary" onClick={loadDashboard}>
-                Retry Loading Dashboard
+                Retry
               </button>
             </div>
           )}
@@ -774,19 +763,7 @@ function AnnouncementsWidget() {
             padding: 20,
           }}
         >
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              border: "3px solid #e5e7eb",
-              borderTop: "3px solid #2563eb",
-              borderRadius: "50%",
-              animation: "announcementLoadingSpin 0.8s linear infinite",
-            }}
-          />
-          <span style={{ fontSize: 13, color: "#6b7280" }}>
-            Loading announcements...
-          </span>
+          <AppLoader size="md" />
         </div>
       ) : error && announcements.length === 0 ? (
         <button className="primary" onClick={load}>

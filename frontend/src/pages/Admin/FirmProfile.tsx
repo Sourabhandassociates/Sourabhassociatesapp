@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { api } from "../../api/client";
 import { getErrorMessage } from "../../api/errorMessage";
@@ -171,7 +172,7 @@ export default function FirmProfile() {
     }
   }
 
-  if (!profile) return <p>Loading…</p>;
+  if (!profile) return <AppLoader />;
 
   return (
     <div>
@@ -196,7 +197,7 @@ export default function FirmProfile() {
             />
             <input type="file" accept="image/png" onChange={handleLogoChange} />
             <button type="button" disabled={!logoFile || uploadingLogo} onClick={handleLogoUpload}>
-              {uploadingLogo ? "Uploading…" : "Upload Logo"}
+              {uploadingLogo ? <AppLoader size="sm" inline /> : "Upload Logo"}
             </button>
           </div>
           {logoError && <p className="error-text">{logoError}</p>}
@@ -293,7 +294,7 @@ export default function FirmProfile() {
                 <input id="qrCodeFile" type="file" accept="image/png,image/jpeg" onChange={handleQrChange} />
                 <div style={{ marginTop: 6 }}>
                   <button type="button" disabled={!qrFile || uploadingQr} onClick={handleQrUpload}>
-                    {uploadingQr ? "Uploading…" : "Upload QR Code"}
+                    {uploadingQr ? <AppLoader size="sm" inline /> : "Upload QR Code"}
                   </button>
                 </div>
               </div>

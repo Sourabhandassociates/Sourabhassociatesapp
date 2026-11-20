@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -51,72 +52,13 @@ interface ClientLink {
 }
 
 /* Reusable inline loader — no external CSS required. */
-function InlineLoader({ message = "Loading..." }: { message?: string }) {
-  return (
-    <div
-      style={{
-        minHeight: 150,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          width: 34,
-          height: 34,
-          border: "3px solid var(--color-border-strong)",
-          borderTop: "3px solid var(--color-primary)",
-          borderRadius: "50%",
-          animation: "billingLoaderSpin 0.8s linear infinite",
-        }}
-      />
-
-      <style>
-        {`
-          @keyframes billingLoaderSpin {
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}
-      </style>
-
-      <p className="muted" style={{ margin: 0 }}>
-        {message}
-      </p>
-    </div>
-  );
+function InlineLoader(_props: { message?: string }) {
+  return <AppLoader size="lg" />;
 }
 
 /* Inline button spinner. */
 function ButtonLoader() {
-  return (
-    <>
-      <span
-        style={{
-          display: "inline-block",
-          width: 14,
-          height: 14,
-          border: "2px solid currentColor",
-          borderRightColor: "transparent",
-          borderRadius: "50%",
-          animation: "billingLoaderSpin 0.7s linear infinite",
-        }}
-      />
-      <style>
-        {`
-          @keyframes billingLoaderSpin {
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}
-      </style>
-    </>
-  );
+  return <AppLoader size="sm" inline />;
 }
 
 export function Billing({
@@ -582,7 +524,7 @@ function ExpenseSection({
           disabled={saving}
         >
           {saving && <ButtonLoader />}
-          {saving ? "Saving Expense..." : "Save Expense"}
+          {saving ? <AppLoader size="sm" inline /> : "Save Expense"}
         </button>
       </form>
     </div>
@@ -945,7 +887,7 @@ function CreateInvoiceSection({
           >
             {creating && <ButtonLoader />}
             {creating
-              ? "Creating Invoice..."
+              ? <AppLoader size="sm" inline />
               : "Create Draft Invoice"}
           </button>
         </div>

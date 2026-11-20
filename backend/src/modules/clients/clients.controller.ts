@@ -19,6 +19,8 @@ const createClientSchema = z.object({
   email: optionalEmail,
   phone: z.string().optional(),
   address: z.string().optional(),
+  clientId: z.string().trim().min(3).max(64).optional(),
+  password: z.string().min(8).max(128).optional(),
   conflictAcknowledged: z.boolean().optional(),
   conflictReason: z.string().optional(),
 });
@@ -57,6 +59,19 @@ export async function updateClient(req: Request, res: Response) {
   const data = parseBody(updateClientSchema, req.body);
   const client = await clientsService.updateClient(req.actor!, req.params.id, data);
   res.json(client);
+}
+
+const credentialsSchema = z.object({
+  clientId: z.string().trim().min(3).max(64).optional(),
+  password: z.string().min(8).max(128).optional(),
+}).refine((data) => Boolean(data.clientId || data.password), {
+  message: "Enter a new username or password",
+});
+
+export async function updateClientCredentials(req: Request, res: Response) {
+  const data = parseBody(credentialsSchema, req.body);
+  const result = await clientsService.updateClientCredentials(req.actor!, req.params.id, data);
+  res.json(result);
 }
 
 const statusSchema = z.object({ status: z.enum(["ACTIVE", "INACTIVE", "BLACKLISTED"]) });

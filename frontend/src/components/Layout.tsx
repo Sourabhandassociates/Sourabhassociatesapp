@@ -31,6 +31,7 @@ import {
 import { useAuth } from "../context/useAuth";
 import { NotificationBell } from "./NotificationBell";
 import { useAccountsPermissions } from "../hooks/useAccountsPermissions";
+import { useCauseListPermission } from "../hooks/useCauseListPermission";
 
 const MIN_WIDTH = 70;
 const MAX_WIDTH = 320;
@@ -205,8 +206,10 @@ export function Layout() {
   }
 
   const { permissions: accountsPermissions } = useAccountsPermissions();
+  const { permission: causeListPermission } = useCauseListPermission();
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (item.to === "/accounts") return accountsPermissions.view;
+    if (item.to === "/cause-list") return auth?.role === "MANAGING_PARTNER" || causeListPermission.view;
     if (item.managingPartnerOnly && auth?.role !== "MANAGING_PARTNER") return false;
     if (item.roles && !item.roles.includes(auth?.role ?? "")) return false;
     return true;
@@ -307,12 +310,6 @@ export function Layout() {
           </span>
         </header>
         <main className="main-content">
-          {auth?.mfaSetupRequired && location.pathname !== "/account/mfa" && (
-            <div className="card no-print" style={{ borderColor: "var(--color-warning)", marginBottom: 16 }}>
-              Your role requires two-factor authentication.{" "}
-              <NavLink to="/account/mfa">Set it up now</NavLink>.
-            </div>
-          )}
           <Outlet />
         </main>
       </div>

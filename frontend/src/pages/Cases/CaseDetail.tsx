@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useState, useRef } from "react";
 import { renderAsync } from "docx-preview";
 import * as XLSX from "xlsx";
@@ -16,6 +17,7 @@ import { CaseContentSection } from "./CaseContentSection";
 interface CaseDetailData {
   id: string;
   matterNumber: string;
+  bundleNumber: string | null;
   courtCaseNumber: string | null;
   /** New Case form simplification (2026-08-11) — title/practiceArea are now optional. */
   title: string | null;
@@ -165,7 +167,7 @@ export default function CaseDetail() {
     api.get("/auth/staff-directory").then((res) => setStaff(res.data));
   }, [reload]);
 
-  if (!data) return <p>Loading…</p>;
+  if (!data) return <AppLoader />;
 
   /** Step 2 — Soft Delete & Recycle Bin (SRD Section 27): never a real delete — the case
    * moves to the Recycle Bin, restorable/permanently-deletable by the Managing Partner only. */
@@ -301,9 +303,9 @@ export default function CaseDetail() {
         />
       )}
       {tab === "hearings" && sectionPermissions.hearings && (
-        <Hearings caseId={data.id} hearings={data.hearings} onChanged={reload} />
+        <Hearings caseId={data.id} bundleNumber={data.bundleNumber} hearings={data.hearings} onChanged={reload} />
       )}
-      {tab === "timeline" && sectionPermissions.timeline && <HearingTimeline hearings={data.hearings} />}
+      {tab === "timeline" && sectionPermissions.timeline && <HearingTimeline hearings={data.hearings} bundleNumber={data.bundleNumber} />}
       {tab === "notes" && sectionPermissions.notes && <Notes caseId={data.id} notes={data.notes} onChanged={reload} />}
       {tab === "billing" && sectionPermissions.billingExpenses && <Billing caseId={data.id} clients={data.clients} />}
       {tab === "accounts" && sectionPermissions.accounts && accountsPermissions.view && (
@@ -367,6 +369,8 @@ function Overview({
   const [oppositeCounsel, setOppositeCounsel] = useState(data.oppositeCounsel ?? "");
   const [oppositeParty, setOppositeParty] = useState(data.oppositeParty ?? "");
   const [department, setDepartment] = useState(data.department ?? "");
+  const [courtCaseNumber, setcourtCaseNumber] = useState(data.courtCaseNumber ?? "");
+  const [bundleNumber, setBundleNumber] = useState(data.bundleNumber ?? "");
   const [error, setError] = useState<string | null>(null);
   const [title, settitle] = useState(data.title ?? "");
 
@@ -386,6 +390,8 @@ function Overview({
         oppositeParty: oppositeParty || undefined,
         department: department || undefined,
         title: title || undefined,
+        courtCaseNumber: courtCaseNumber || undefined,
+        bundleNumber: bundleNumber.trim() || null,
       });
 
       setEditing(false);
@@ -401,6 +407,8 @@ function Overview({
         <h3>Case Identification</h3>
         <div style={overviewGridStyle}>
           <Field label="Case Number" value={data.matterNumber} />
+          <Field label="Bundle Number" value={data.bundleNumber} />
+          <Field label="Court Case Number" value={data.courtCaseNumber} />
           <Field label="Cause Title" value={data.title} />
           <Field label="Court Name" value={data.courtName} />
           <Field label="Court No." value={data.courtNumber} />
@@ -491,6 +499,16 @@ function Overview({
             </div>
 
             <div className="form-grid">
+              <div>
+                <label htmlFor="bundleNumberEdit">Bundle Number</label>
+                <input
+                  id="bundleNumberEdit"
+                  type="text"
+                  value={bundleNumber}
+                  onChange={(e) => setBundleNumber(e.target.value)}
+                  placeholder="Enter Bundle Number"
+                />
+              </div>
               <div>
                 <label htmlFor="CaseTitle">Case Title</label>
                 <input
@@ -823,7 +841,13 @@ function CustomFieldsCard({ caseId, canEdit }: { caseId: string; canEdit: boolea
  * default view. Reuses the same `hearings` data the Hearings tab already has — no
  * extra fetch.
  */
-function HearingTimeline({ hearings }: { hearings: CaseDetailData["hearings"] }) {
+function HearingTimeline({
+  hearings,
+  bundleNumber,
+}: {
+  hearings: CaseDetailData["hearings"];
+  bundleNumber: string | null;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   const sortedDesc = hearings
@@ -856,6 +880,7 @@ function HearingTimeline({ hearings }: { hearings: CaseDetailData["hearings"] })
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Bundle Number</th>
                 <th>Court</th>
                 <th>Purpose</th>
                 <th>Status</th>
@@ -866,6 +891,7 @@ function HearingTimeline({ hearings }: { hearings: CaseDetailData["hearings"] })
               {sortedDesc.map((h) => (
                 <tr key={h.id}>
                   <td>{new Date(h.hearingDate).toLocaleDateString("en-IN")}</td>
+                  <td>{bundleNumber || "—"}</td>
                   <td>{h.courtName ?? "—"}</td>
                   <td>{h.purpose ?? "—"}</td>
                   <td>
@@ -1164,7 +1190,7 @@ function Documents({
             type="submit"
             disabled={uploading}
           >
-            {uploading ? "Uploading..." : "Upload"}
+            {uploading ? <AppLoader size="sm" inline /> : "Upload"}
           </button>
         </form>
       </div>
@@ -1898,10 +1924,12 @@ function Tasks({
 
 function Hearings({
   caseId,
+  bundleNumber,
   hearings,
   onChanged,
 }: {
   caseId: string;
+  bundleNumber: string | null;
   hearings: CaseDetailData["hearings"];
   onChanged: () => void;
 }) {
@@ -2100,6 +2128,7 @@ function Hearings({
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Bundle Number</th>
                 <th>Court</th>
                 <th>Hall/No.</th>
                 <th>Purpose</th>
@@ -2115,6 +2144,7 @@ function Hearings({
                   <td>
                     {new Date(h.hearingDate).toLocaleDateString("en-IN")}
                   </td>
+                  <td>{bundleNumber || "—"}</td>
 
                   <td>{h.courtName ?? "—"}</td>
                   <td>{h.courtHall ?? "—"}</td>
@@ -2148,7 +2178,7 @@ function Hearings({
               {hearings.length === 0 && (
                 <tr>
                   <td
-                    colSpan={canManage ? 7 : 6}
+                    colSpan={canManage ? 8 : 7}
                     className="muted"
                   >
                     No hearings scheduled yet.
@@ -2160,7 +2190,7 @@ function Hearings({
         </div>
       </div>
 
-     
+
       {canManage && outcomeFor && (
         <div className="card">
           <h3>Record Hearing Outcome</h3>

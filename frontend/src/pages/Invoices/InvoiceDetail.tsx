@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../api/client";
@@ -85,7 +86,7 @@ export default function InvoiceDetail() {
   }, [load]);
 
   if (!invoice) {
-    return <p>{error ?? "Loading…"}</p>;
+    return error ? <p className="error-text">{error}</p> : <AppLoader size="lg" />;
   }
 
   const canApprove = auth?.role === "MANAGING_PARTNER";

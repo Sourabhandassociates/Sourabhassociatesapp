@@ -697,3 +697,84 @@ tr.clickable { cursor: pointer; }
   content: attr(data-placeholder);
   color: var(--color-text-muted);
 }
+
+/* One consistent loader for every screen and async action. */
+.app-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  width: 100%;
+  color: var(--color-primary);
+}
+.app-loader-inline {
+  display: inline-flex;
+  width: auto;
+  min-height: 0;
+  vertical-align: middle;
+}
+.app-loader-spinner {
+  display: inline-block;
+  flex: 0 0 auto;
+  border-style: solid;
+  border-color: var(--color-primary-light);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: app-loader-spin 0.75s linear infinite;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@keyframes app-loader-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-loader-spinner { animation-duration: 1.8s; }
+}
+
+
+/* Role & Permission Management toast feedback */
+.permission-toast {
+  position: fixed;
+  z-index: 3000;
+  top: 22px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  animation: permission-toast-in 180ms ease-out;
+}
+.permission-toast > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  flex: 0 0 21px;
+  border-radius: 50%;
+  font-weight: 700;
+}
+.permission-toast-success > span { color: var(--color-success); background: var(--color-success-bg); }
+.permission-toast-error > span { color: var(--color-danger); background: var(--color-danger-bg); }
+.permission-toast-info > span { color: var(--color-primary); background: var(--color-primary-light); }
+@keyframes permission-toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

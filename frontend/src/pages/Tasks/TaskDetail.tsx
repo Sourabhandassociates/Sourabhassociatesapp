@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
@@ -157,10 +158,10 @@ export default function TaskDetail() {
             }}
           />
 
-          <h3 style={{ margin: "18px 0 6px" }}>Loading...</h3>
+          <AppLoader />
 
           <p className="muted" style={{ margin: 0 }}>
-            Please wait while we fetch your information.
+            
           </p>
         </div>
       </>

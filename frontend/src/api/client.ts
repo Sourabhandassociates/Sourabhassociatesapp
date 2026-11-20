@@ -1,9 +1,28 @@
 import axios from "axios";
+import toast from "react-hot-toast";
 import {
   getAuthState,
   setAuthState,
   clearAuthState,
 } from "../context/authStorage";
+
+
+/** Global CRUD notifications. All API mutations use this shared Axios instance,
+ * so the same success/error feedback is applied throughout the application. */
+function getMutationToast(method?: string, url?: string) {
+  const normalizedMethod = (method || "").toLowerCase();
+  const cleanUrl = (url || "").split("?")[0].replace(/\/+$/, "");
+
+  if (!["post", "put", "patch", "delete"].includes(normalizedMethod)) return null;
+  // These are workflow/auth actions, not user-facing create/edit/delete operations.
+  if (/\/(auth|read|refresh|logout)(\/|$)/i.test(cleanUrl)) return null;
+
+  const parts = cleanUrl.split("/").filter(Boolean);
+  const rawEntity = parts[parts.length - (normalizedMethod === "post" ? 1 : 2)] || parts[parts.length - 1] || "Record";
+  const entity = rawEntity.replace(/[-_]/g, " ").replace(/s$/i, "");
+  const action = normalizedMethod === "post" ? "created" : normalizedMethod === "delete" ? "deleted" : "updated";
+  return `${entity.charAt(0).toUpperCase()}${entity.slice(1)} ${action} successfully`;
+}
 
 // Backend API
 export const api = axios.create({
@@ -58,7 +77,11 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const message = getMutationToast(response.config.method, response.config.url || "");
+    if (message) toast.success(message);
+    return response;
+  },
 
   async (error) => {
     const original = error.config;
@@ -80,6 +103,12 @@ api.interceptors.response.use(
       }
 
       window.location.href = "/login";
+    }
+
+    const message = getMutationToast(original?.method, original?.url || "");
+    if (message) {
+      const responseMessage = error.response?.data?.error;
+      toast.error(typeof responseMessage === "string" ? responseMessage : "Unable to complete the action. Please try again.");
     }
 
     return Promise.reject(error);

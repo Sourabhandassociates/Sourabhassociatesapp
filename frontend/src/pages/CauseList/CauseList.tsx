@@ -1,5 +1,7 @@
+import { AppLoader } from "../../components/AppLoader";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useCauseListPermission } from "../../hooks/useCauseListPermission";
 import { api } from "../../api/client";
 import { downloadFile } from "../../utils/downloadFile";
 
@@ -43,6 +45,7 @@ const RANGE_LABELS: Record<RangePreset, string> = {
  * not in scope for removal.
  */
 export default function CauseList() {
+  const { permission, loading: permissionLoading } = useCauseListPermission();
   const [rangePreset, setRangePreset] = useState<RangePreset>("TODAY");
   const [groupBy, setGroupBy] = useState<GroupBy>("NONE");
 
@@ -66,9 +69,10 @@ export default function CauseList() {
 
   // Reloads automatically whenever the selected date filter changes.
   useEffect(() => {
+    if (permissionLoading || !permission.view) return;
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangePreset]);
+  }, [rangePreset, permissionLoading, permission.view]);
 
   const groups = useMemo(() => {
     if (groupBy === "NONE") return [{ label: null as string | null, rows }];
@@ -87,6 +91,16 @@ export default function CauseList() {
       `/hearings/cause-list/export/${kind}`,
       { ...currentParams(), groupBy },
       `cause-list.${kind === "pdf" ? "pdf" : "xlsx"}`
+    );
+  }
+
+  if (permissionLoading) return <AppLoader />;
+  if (!permission.view) {
+    return (
+      <div className="card">
+        <h2>Access Restricted</h2>
+        <p className="muted">You do not have permission to view the Cause List. Please contact your Managing Partner.</p>
+      </div>
     );
   }
 
@@ -150,7 +164,7 @@ export default function CauseList() {
           <img src="/logo.png" alt="S&A LEGAL" />
           <h3>S&amp;A LEGAL — Cause List</h3>
         </div>
-        {loading && <p className="muted no-print">Loading…</p>}
+        {loading && <AppLoader />}
         {!loading && rows.length === 0 && <p className="muted">No hearings match the selected filter.</p>}
         {groups.map((group, gi) => (
           <div className="card" key={gi}>

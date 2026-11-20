@@ -12,6 +12,7 @@ clientsRouter.post("/", requirePermission("CLIENTS.CREATE"), clientsController.c
 clientsRouter.get("/", clientsController.listClients);
 clientsRouter.get("/:id", clientsController.getClient);
 clientsRouter.patch("/:id", requirePermission("CLIENTS.EDIT"), clientsController.updateClient);
+clientsRouter.patch("/:id/credentials", requirePermission("CLIENTS.EDIT"), clientsController.updateClientCredentials);
 clientsRouter.patch("/:id/status", requirePermission("CLIENTS.CHANGE_STATUS"), clientsController.setClientStatus);
 clientsRouter.patch(
   "/:id/portal-permissions",

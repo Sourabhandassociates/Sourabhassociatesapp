@@ -22,9 +22,10 @@ hearingsRouter.use(requireAuth, requireStaff, attachEffectivePermissions);
 hearingsRouter.get("/", hearingsController.listHearingsInRange);
 /** Step 4 — Cause List: same access surface as the range endpoint above (case-scope
  * only, no new permission gate), just richer filtering/grouping/export. */
-hearingsRouter.get("/cause-list", causeListController.listCauseList);
-hearingsRouter.get("/cause-list/export/pdf", causeListController.exportCauseListPdf);
-hearingsRouter.get("/cause-list/export/excel", causeListController.exportCauseListExcel);
+hearingsRouter.get("/cause-list/access", causeListController.getCauseListAccess);
+hearingsRouter.get("/cause-list", requirePermission("CAUSE_LIST.VIEW"), causeListController.listCauseList);
+hearingsRouter.get("/cause-list/export/pdf", requirePermission("CAUSE_LIST.VIEW"), causeListController.exportCauseListPdf);
+hearingsRouter.get("/cause-list/export/excel", requirePermission("CAUSE_LIST.VIEW"), causeListController.exportCauseListExcel);
 hearingsRouter.patch("/:id/outcome", requirePermission("HEARINGS.EDIT"), hearingsController.recordHearingOutcome);
 /** Step 1 revision (Managing Partner review, item 6) — reschedule the still-upcoming hearing in place. */
 hearingsRouter.patch("/:id", requirePermission("HEARINGS.EDIT"), hearingsController.rescheduleHearing);

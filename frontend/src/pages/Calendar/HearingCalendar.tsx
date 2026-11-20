@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -8,6 +9,8 @@ interface CalendarCaseDetails {
   caseType?: string | null;
   courtNumber?: string | null;
   courtName?: string | null;
+   courtCaseNumber? :string | null ;
+  bundleNumber?: string | null;
 }
 
 interface CalendarHearing {
@@ -21,6 +24,7 @@ interface CalendarHearing {
     id: string;
     matterNumber?: string | null;
     courtCaseNumber?: string | null;
+    bundleNumber?: string | null;
     title?: string | null;
     caseType?: string | null;
     courtNumber?: string | null;
@@ -88,7 +92,8 @@ export default function HearingCalendar() {
                     caseRecord?.id &&
                     (!caseRecord.caseType ||
                       !caseRecord.courtNumber ||
-                      !caseRecord.courtName)
+                      !caseRecord.courtName ||
+                      !caseRecord.bundleNumber)
                   );
                 })
                 .map((hearing) => hearing.case!.id)
@@ -128,6 +133,8 @@ export default function HearingCalendar() {
                 caseType: caseRecord.caseType ?? details.caseType,
                 courtNumber: caseRecord.courtNumber ?? details.courtNumber,
                 courtName: caseRecord.courtName ?? details.courtName,
+                courtCaseNumber: caseRecord.courtCaseNumber ?? details.courtCaseNumber,
+                bundleNumber: caseRecord.bundleNumber ?? details.bundleNumber,
               },
             };
           });
@@ -257,7 +264,7 @@ export default function HearingCalendar() {
               `}
             </style>
 
-            <p className="muted">Loading hearings...</p>
+            <AppLoader size="md" />
           </div>
         ) : error ? (
           <div style={{ textAlign: "center", padding: 35 }}>
@@ -347,12 +354,74 @@ export default function HearingCalendar() {
           {selectedHearings.length === 0 ? (
             <p className="muted">No hearings on this date.</p>
           ) : (
+            // <div className="table-scroll">
+            //   <table>
+            //     <thead>
+            //       <tr>
+            //         <th>Case Type</th>
+            //         <th>Case Number</th>
+            //         <th>Cause Title</th>
+            //         <th>Court Number</th>
+            //         <th>Court Complex</th>
+            //         <th>Hearing Status</th>
+            //       </tr>
+            //     </thead>
+
+            //     <tbody>
+            //       {selectedHearings.map((hearing) => {
+            //         const caseRecord = hearing.case;
+
+            //         return (
+            //           <tr key={hearing.id}>
+            //             <td>
+            //               {displayValue(caseRecord?.caseType)}
+            //             </td>
+
+            //             <td>
+            //               {caseRecord?.id ? (
+            //                 <Link to={`/cases/${caseRecord.id}`}>
+            //                   {displayValue(
+            //                     caseRecord.matterNumber,
+            //                     caseRecord.courtCaseNumber
+            //                   )}
+            //                 </Link>
+            //               ) : (
+            //                 "—"
+            //               )}
+            //             </td>
+
+            //             <td>{displayValue(caseRecord?.title)}</td>
+
+            //             <td>
+            //               {displayValue(caseRecord?.courtNumber)}
+            //             </td>
+
+            //             <td>
+            //               {displayValue(
+            //                 caseRecord?.courtName,
+            //                 hearing.courtName
+            //               )}
+            //             </td>
+
+            //             <td>
+            //               <span className="badge">
+            //                 {hearing.status}
+            //               </span>
+            //             </td>
+            //           </tr>
+            //         );
+            //       })}
+            //     </tbody>
+            //   </table>
+            // </div>
             <div className="table-scroll">
               <table>
                 <thead>
                   <tr>
                     <th>Case Type</th>
                     <th>Case Number</th>
+                    <th>Bundle Number</th>
+                    <th>Court Case Number</th>
                     <th>Cause Title</th>
                     <th>Court Number</th>
                     <th>Court Complex</th>
@@ -366,40 +435,34 @@ export default function HearingCalendar() {
 
                     return (
                       <tr key={hearing.id}>
-                        <td>
-                          {displayValue(caseRecord?.caseType)}
-                        </td>
+                        <td>{displayValue(caseRecord?.caseType)}</td>
 
                         <td>
                           {caseRecord?.id ? (
                             <Link to={`/cases/${caseRecord.id}`}>
-                              {displayValue(
-                                caseRecord.matterNumber,
-                                caseRecord.courtCaseNumber
-                              )}
+                              {displayValue(caseRecord.matterNumber)}
                             </Link>
                           ) : (
                             "—"
                           )}
                         </td>
 
+                        <td>{displayValue(caseRecord?.bundleNumber)}</td>
+
+                        <td>
+                          {displayValue(caseRecord?.courtCaseNumber)}
+                        </td>
+
                         <td>{displayValue(caseRecord?.title)}</td>
 
+                        <td>{displayValue(caseRecord?.courtNumber)}</td>
+
                         <td>
-                          {displayValue(caseRecord?.courtNumber)}
+                          {displayValue(caseRecord?.courtName, hearing.courtName)}
                         </td>
 
                         <td>
-                          {displayValue(
-                            caseRecord?.courtName,
-                            hearing.courtName
-                          )}
-                        </td>
-
-                        <td>
-                          <span className="badge">
-                            {hearing.status}
-                          </span>
+                          <span className="badge">{hearing.status}</span>
                         </td>
                       </tr>
                     );

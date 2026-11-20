@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -10,6 +11,7 @@ import { useAccountsPermissions } from "../../hooks/useAccountsPermissions";
 interface CaseRow {
   id: string;
   matterNumber: string;
+  bundleNumber?: string | null;
   courtCaseNumber: string | null;
   caseType: string | null;
   title: string | null;
@@ -194,6 +196,7 @@ export default function CaseList() {
           <thead>
             <tr>
               <th>Case Type</th>
+              <th>Bundle Number</th>
               <th>Court Case No.</th>
               <th>Title</th>
               <th>Court No</th>
@@ -208,7 +211,7 @@ export default function CaseList() {
               <tr>
                 <td
                   colSpan={
-                    accountsPermissions.createExpense ? 7 : 6
+                    accountsPermissions.createExpense ? 8 : 7
                   }
                   style={{
                     textAlign: "center",
@@ -224,25 +227,8 @@ export default function CaseList() {
                       gap: 12,
                     }}
                   >
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        border: "4px solid #e5e7eb",
-                        borderTop: "4px solid #2563eb",
-                        borderRadius: "50%",
-                        animation: "caseListSpin 0.8s linear infinite",
-                      }}
-                    />
 
-                    <strong
-                      style={{
-                        fontSize: 15,
-                        color: "#374151",
-                      }}
-                    >
-                      Loading cases...
-                    </strong>
+                    <AppLoader size="md" />
 
                     <span
                       style={{
@@ -250,7 +236,7 @@ export default function CaseList() {
                         color: "#6b7280",
                       }}
                     >
-                      Please wait while we fetch your information.
+                      
                     </span>
                   </div>
                 </td>
@@ -259,7 +245,7 @@ export default function CaseList() {
               <tr>
                 <td
                   colSpan={
-                    accountsPermissions.createExpense ? 7 : 6
+                    accountsPermissions.createExpense ? 8 : 7
                   }
                   style={{
                     textAlign: "center",
@@ -306,6 +292,7 @@ export default function CaseList() {
                     onClick={() => navigate(`/cases/${c.id}`)}
                   >
                     <td>{c.caseType ?? "—"}</td>
+                    <td>{c.bundleNumber ?? "—"}</td>
                     <td>{c.courtCaseNumber ?? "—"}</td>
                     <td>{c.title ?? "—"}</td>
                     <td>{c.courtNumber ?? "_"}</td>
@@ -338,7 +325,7 @@ export default function CaseList() {
                   <tr>
                     <td
                       colSpan={
-                        accountsPermissions.createExpense ? 7 : 6
+                        accountsPermissions.createExpense ? 8 : 7
                       }
                       className="muted"
                     >
@@ -482,7 +469,7 @@ function CaseQuickExpenseForm({
                 fontSize: 13,
               }}
             >
-              Loading client information...
+              <AppLoader size="sm" inline />
             </span>
           ) : (
             clientNames

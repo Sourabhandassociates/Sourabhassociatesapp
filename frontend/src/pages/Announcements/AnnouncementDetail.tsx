@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api/client";
@@ -92,7 +93,7 @@ export default function AnnouncementDetail() {
       </div>
     );
   }
-  if (!data) return <p>Loading…</p>;
+  if (!data) return <AppLoader />;
 
   return (
     <div>

@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -69,54 +70,8 @@ interface CaseAccountsData {
 }
 
 /** Inline loading indicator */
-function CaseAccountsLoader({
-  message = "Loading case Accounts...",
-}: {
-  message?: string;
-}) {
-  return (
-    <>
-      <style>
-        {`
-          @keyframes caseAccountsSpin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}
-      </style>
-
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 12,
-          padding: "45px 20px",
-          textAlign: "center",
-        }}
-      >
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            border: "4px solid #e5e7eb",
-            borderTop: "4px solid #2563eb",
-            borderRadius: "50%",
-            animation: "caseAccountsSpin 0.8s linear infinite",
-          }}
-        />
-
-        <strong style={{ fontSize: 15, color: "#374151" }}>
-          {message}
-        </strong>
-
-        <span style={{ fontSize: 13, color: "#6b7280" }}>
-          Please wait while we fetch your information.
-        </span>
-      </div>
-    </>
-  );
+function CaseAccountsLoader(_props: { message?: string }) {
+  return <AppLoader size="lg" />;
 }
 
 export function CaseAccountsPanel({

@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import { getErrorMessage } from "../../api/errorMessage";
@@ -77,6 +78,32 @@ function groupByModule<T extends { permission: { module: string } }>(rows: T[]):
   return [...groups.entries()];
 }
 
+type ToastKind = "success" | "error" | "info";
+interface ToastMessage {
+  id: number;
+  kind: ToastKind;
+  message: string;
+}
+
+function usePermissionToast() {
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const showToast = useCallback((message: string, kind: ToastKind = "success") => {
+    setToast({ id: Date.now(), kind, message });
+    window.setTimeout(() => setToast((current) => (current?.message === message ? null : current)), 3500);
+  }, []);
+  return { toast, showToast };
+}
+
+function ToastViewport({ toast }: { toast: ToastMessage | null }) {
+  if (!toast) return null;
+  return (
+    <div className={`permission-toast permission-toast-${toast.kind}`} role="status" aria-live="polite">
+      <span aria-hidden="true">{toast.kind === "success" ? "✓" : toast.kind === "error" ? "!" : "i"}</span>
+      {toast.message}
+    </div>
+  );
+}
+
 export default function PermissionManagement() {
   const [tab, setTab] = useState<"role-defaults" | "employee-overrides" | "permission-summary">("role-defaults");
 
@@ -113,6 +140,7 @@ interface PermissionMatrixRow {
 }
 
 function RoleDefaultsTab() {
+  const { toast, showToast } = usePermissionToast();
   const [rows, setRows] = useState<RoleDefaultRow[] | null>(null);
   const [pending, setPending] = useState<Map<string, boolean>>(new Map()); // "ROLE:PERMISSION.KEY" -> staged value
   const [search, setSearch] = useState("");
@@ -125,8 +153,12 @@ function RoleDefaultsTab() {
     api
       .get("/permissions/role-defaults")
       .then((res) => setRows(res.data))
-      .catch((err) => setError(getErrorMessage(err, "Failed to load role defaults")));
-  }, []);
+      .catch((err) => {
+        const message = getErrorMessage(err, "Failed to load role defaults");
+        setError(message);
+        showToast(message, "error");
+      });
+  }, [showToast]);
   useEffect(() => load(), [load]);
 
   const matrixRows = useMemo<PermissionMatrixRow[]>(() => {
@@ -180,10 +212,12 @@ function RoleDefaultsTab() {
       next.set(key, newValue);
     }
     setPending(next);
+    showToast(`${row.permission.label}: ${newValue ? "enabled" : "disabled"} for ${ROLE_LABELS[role]}.`, "info");
   }
 
   function cancel() {
     setPending(new Map());
+    showToast("Pending permission changes discarded.", "info");
   }
 
   async function save() {
@@ -204,20 +238,25 @@ function RoleDefaultsTab() {
       });
       const res = await api.patch("/permissions/role-defaults", { changes });
       setPending(new Map());
-      setSuccess(`Saved ${res.data.updated} change${res.data.updated === 1 ? "" : "s"}.`);
+      const message = `Saved ${res.data.updated} change${res.data.updated === 1 ? "" : "s"}.`;
+      setSuccess(message);
+      showToast(message);
       load();
       setTimeout(() => setSuccess(null), 4000);
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to save changes"));
+      const message = getErrorMessage(err, "Failed to save changes");
+      setError(message);
+      showToast(message, "error");
     } finally {
       setSaving(false);
     }
   }
 
-  if (!rows) return <p>Loading…</p>;
+  if (!rows) return <AppLoader />;
 
   return (
     <div>
+      <ToastViewport toast={toast} />
       {error && <p className="error-text">{error}</p>}
       {success && <p className="success-text">{success}</p>}
 
@@ -250,6 +289,15 @@ function RoleDefaultsTab() {
       {grouped.length === 0 && (
         <div className="card">
           <p className="muted">No permissions match this search.</p>
+        </div>
+      )}
+      {!rows.some((row) => row.permission.key === "CAUSE_LIST.VIEW") && (
+        <div className="card" style={{ borderLeft: "4px solid var(--color-warning, #d97706)" }}>
+          <h3>Cause List permission is not registered</h3>
+          <p className="muted">
+            Run <code>npm run seed</code> on the backend connected to this application database.
+            This registers CAUSE_LIST.VIEW in Role Defaults for all five roles without overwriting existing role settings.
+          </p>
         </div>
       )}
 
@@ -320,14 +368,19 @@ function RoleDefaultsTab() {
 /* Shared: employee search, header, and the effective-permissions table     */
 /* ------------------------------------------------------------------------ */
 
-function EmployeeSearch({ onSelect }: { onSelect: (employeeId: string) => void }) {
+function EmployeeSearch({ onSelect, onToast }: { onSelect: (employeeId: string) => void; onToast?: (message: string, kind?: ToastKind) => void }) {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    api.get("/auth/staff-directory").then((res) => setStaff(res.data));
-  }, []);
+    api.get("/auth/staff-directory")
+      .then((res) => {
+        setStaff(res.data);
+        if (!res.data?.length) onToast?.("No staff members are available.", "info");
+      })
+      .catch((err) => onToast?.(getErrorMessage(err, "Failed to load staff directory"), "error"));
+  }, [onToast]);
 
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -521,6 +574,7 @@ function OverrideReasonDialog({
   onCancel: () => void;
   onConfirm: (reason: string) => Promise<void>;
 }) {
+  const { toast, showToast } = usePermissionToast();
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -528,6 +582,7 @@ function OverrideReasonDialog({
   async function submit() {
     if (!reason.trim()) {
       setError("A reason is required.");
+      showToast("Please enter a reason before confirming.", "error");
       return;
     }
     setSubmitting(true);
@@ -535,7 +590,9 @@ function OverrideReasonDialog({
     try {
       await onConfirm(reason.trim());
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to save the override"));
+      const message = getErrorMessage(err, "Failed to save the override");
+      setError(message);
+      showToast(message, "error");
       setSubmitting(false);
     }
   }
@@ -651,6 +708,7 @@ function CaseSectionAccessCard({
 /* ------------------------------------------------------------------------ */
 
 function EmployeeOverridesTab() {
+  const { toast, showToast } = usePermissionToast();
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [summary, setSummary] = useState<EmployeeSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -662,17 +720,23 @@ function EmployeeOverridesTab() {
     api
       .get(`/permissions/employees/${id}`)
       .then((res) => setSummary(res.data))
-      .catch((err) => setError(getErrorMessage(err, "Failed to load employee")));
-  }, []);
+      .catch((err) => {
+        const message = getErrorMessage(err, "Failed to load employee");
+        setError(message);
+        showToast(message, "error");
+      });
+  }, [showToast]);
 
   function selectEmployee(id: string) {
     setEmployeeId(id);
     setSummary(null);
     load(id);
+    showToast("Employee permissions loaded.", "info");
   }
 
   function flashSuccess(message: string) {
     setSuccess(message);
+    showToast(message);
     setTimeout(() => setSuccess(null), 4000);
   }
 
@@ -697,7 +761,9 @@ function EmployeeOverridesTab() {
       flashSuccess(`Reverted ${entry.permission.label} to the role default.`);
       load(employeeId);
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to remove the override"));
+      const message = getErrorMessage(err, "Failed to remove the override");
+      setError(message);
+      showToast(message, "error");
     }
   }
 
@@ -712,7 +778,9 @@ function EmployeeOverridesTab() {
       flashSuccess(`Removed ${res.data.removed} override(s).`);
       load(employeeId);
     } catch (err) {
-      setError(getErrorMessage(err, "Failed to reset"));
+      const message = getErrorMessage(err, "Failed to reset");
+      setError(message);
+      showToast(message, "error");
     }
   }
 
@@ -732,14 +800,15 @@ function EmployeeOverridesTab() {
 
   return (
     <div>
+      <ToastViewport toast={toast} />
       <div className="card">
-        <EmployeeSearch onSelect={selectEmployee} />
+        <EmployeeSearch onSelect={selectEmployee} onToast={showToast} />
       </div>
 
       {error && <p className="error-text">{error}</p>}
       {success && <p className="success-text">{success}</p>}
 
-      {employeeId && !summary && !error && <p>Loading…</p>}
+      {employeeId && !summary && !error && <AppLoader />}
 
       {summary && (
         <>
@@ -787,6 +856,7 @@ function EmployeeOverridesTab() {
 /* ------------------------------------------------------------------------ */
 
 function PermissionSummaryTab() {
+  const { toast, showToast } = usePermissionToast();
   const [employeeId, setEmployeeId] = useState<string | null>(null);
   const [summary, setSummary] = useState<EmployeeSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -797,17 +867,25 @@ function PermissionSummaryTab() {
     setError(null);
     api
       .get(`/permissions/employees/${id}`)
-      .then((res) => setSummary(res.data))
-      .catch((err) => setError(getErrorMessage(err, "Failed to load employee")));
+      .then((res) => {
+        setSummary(res.data);
+        showToast("Permission summary loaded.", "info");
+      })
+      .catch((err) => {
+        const message = getErrorMessage(err, "Failed to load employee");
+        setError(message);
+        showToast(message, "error");
+      });
   }
 
   return (
     <div>
+      <ToastViewport toast={toast} />
       <div className="card">
-        <EmployeeSearch onSelect={selectEmployee} />
+        <EmployeeSearch onSelect={selectEmployee} onToast={showToast} />
       </div>
       {error && <p className="error-text">{error}</p>}
-      {employeeId && !summary && !error && <p>Loading…</p>}
+      {employeeId && !summary && !error && <AppLoader />}
       {summary && (
         <>
           <EmployeeHeader user={summary.user} />

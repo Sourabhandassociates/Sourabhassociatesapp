@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
+import toast from "react-hot-toast";
 import { api } from "../api/client";
 
 interface NotificationItem {
@@ -23,6 +24,106 @@ export function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const seenNotificationIds = useRef<Set<string> | null>(null);
+
+  // Announcements are delivered through the existing notifications API. The first
+  // fetch establishes a baseline; later polls show only newly arrived announcements.
+  async function pollAnnouncementNotifications() {
+    try {
+      const res = await api.get<NotificationItem[]>("/notifications");
+      const latest = Array.isArray(res.data) ? res.data : [];
+
+      if (seenNotificationIds.current === null) {
+        seenNotificationIds.current = new Set(latest.map((item) => item.id));
+        return;
+      }
+
+      const seen = seenNotificationIds.current;
+      const newAnnouncements = latest.filter(
+        (item) =>
+          !seen.has(item.id) &&
+          item.entityType === "Announcement" &&
+          Boolean(item.entityId)
+      );
+
+      latest.forEach((item) => seen.add(item.id));
+
+      newAnnouncements.reverse().forEach((item) => {
+        toast.custom(
+          (t) => (
+            <div
+              role="status"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                width: "min(420px, calc(100vw - 32px))",
+                padding: "14px 16px",
+                background: "#ffffff",
+                color: "#202938",
+                border: "1px solid #dce3f5",
+                borderLeft: "4px solid #315efb",
+                borderRadius: 10,
+                boxShadow: "0 8px 28px rgba(15, 23, 42, 0.18)",
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong style={{ display: "block", marginBottom: 4 }}>
+                  New announcement
+                </strong>
+                <span style={{ display: "block", fontSize: 13, lineHeight: 1.45 }}>
+                  {item.message}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.dismiss(t.id);
+                    navigate(`/announcements/${item.entityId}`);
+                  }}
+                  style={{
+                    marginTop: 9,
+                    padding: 0,
+                    border: 0,
+                    background: "transparent",
+                    color: "#315efb",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  View announcement
+                </button>
+              </div>
+              <button
+                type="button"
+                aria-label="Close announcement notification"
+                title="Close"
+                onClick={() => toast.dismiss(t.id)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 26,
+                  height: 26,
+                  flex: "0 0 26px",
+                  padding: 0,
+                  border: 0,
+                  borderRadius: 6,
+                  background: "#f1f5f9",
+                  color: "#475569",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ),
+          { duration: Infinity, position: "top-right" }
+        );
+      });
+    } catch {
+      // Keep the existing notification bell usable if background polling fails.
+    }
+  }
 
   function refreshCount() {
     api.get<{ count: number }>("/notifications/unread-count").then((res) => setUnreadCount(res.data.count));
@@ -30,7 +131,13 @@ export function NotificationBell() {
 
   useEffect(() => {
     refreshCount();
-    const interval = setInterval(refreshCount, 30000);
+    pollAnnouncementNotifications();
+
+    const interval = setInterval(() => {
+      refreshCount();
+      pollAnnouncementNotifications();
+    }, 10000);
+
     return () => clearInterval(interval);
   }, []);
 

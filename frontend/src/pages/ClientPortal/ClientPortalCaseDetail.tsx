@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../api/client";
@@ -8,13 +9,20 @@ import { downloadFile } from "../../utils/downloadFile";
 interface CaseDetailData {
   id: string;
   matterNumber: string;
+  bundleNumber: string | null;
   title: string | null;
+  caseTitle: string | null;
+  practiceArea: string | null;
   status: string;
   stage: string | null;
   caseType: string | null;
+  description: string | null;
+  oppositeCounsel: string | null;
+  oppositeParty: string | null;
   filingDate: string | null;
   courtName: string | null;
   courtNumber: string | null;
+  courtCaseNumber: string | null;
   jurisdiction: string | null;
   department: string | null;
 }
@@ -49,20 +57,78 @@ export default function ClientPortalCaseDetail() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    api
-      .get<CaseDetailData>(`/client-portal/cases/${id}`)
-      .then((res) => setCaseData(res.data))
-      .catch((err) => setError(getErrorMessage(err, "Unable to load this case")));
+    if (!id) {
+      setError("Case ID is missing.");
+      return;
+    }
 
-    api.get<{ permissions: { hearingHistory: boolean; documents: boolean } }>("/client-portal/me").then((res) => {
-      if (res.data.permissions.hearingHistory) {
-        api.get<HearingRow[]>("/client-portal/hearings", { params: { caseId: id } }).then((r) => setHearings(r.data));
+    let cancelled = false;
+
+    async function loadCasePortalData() {
+      setError(null);
+
+      try {
+        const profileResponse = await api.get<{
+          permissions: {
+            cases: boolean;
+            hearingHistory: boolean;
+            documents: boolean;
+          };
+        }>("/client-portal/me");
+
+        if (cancelled) return;
+
+        if (!profileResponse.data.permissions.cases) {
+          setError("You do not have permission to view this case.");
+          return;
+        }
+
+        const caseResponse = await api.get<CaseDetailData>(
+          `/client-portal/cases/${id}`
+        );
+
+        if (cancelled) return;
+        setCaseData(caseResponse.data);
+
+        if (profileResponse.data.permissions.hearingHistory) {
+          try {
+            const hearingResponse = await api.get<HearingRow[]>(
+              "/client-portal/hearings",
+              { params: { caseId: id } }
+            );
+            if (!cancelled) setHearings(hearingResponse.data);
+          } catch {
+            if (!cancelled) setHearings([]);
+          }
+        } else if (!cancelled) {
+          setHearings(null);
+        }
+
+        if (profileResponse.data.permissions.documents) {
+          try {
+            const documentResponse = await api.get<DocumentRow[]>(
+              "/client-portal/documents",
+              { params: { caseId: id } }
+            );
+            if (!cancelled) setDocuments(documentResponse.data);
+          } catch {
+            if (!cancelled) setDocuments([]);
+          }
+        } else if (!cancelled) {
+          setDocuments(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(getErrorMessage(err, "Unable to load this case"));
+        }
       }
-      if (res.data.permissions.documents) {
-        api.get<DocumentRow[]>("/client-portal/documents", { params: { caseId: id } }).then((r) => setDocuments(r.data));
-      }
-    });
+    }
+
+    loadCasePortalData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   async function handleDownload(documentId: string, fileName: string) {
@@ -79,7 +145,7 @@ export default function ClientPortalCaseDetail() {
       </div>
     );
   }
-  if (!caseData) return <p>Loading…</p>;
+  if (!caseData) return <AppLoader />;
 
   return (
     <div className="login-page">
@@ -97,26 +163,54 @@ export default function ClientPortalCaseDetail() {
         <div className="card" style={{ marginBottom: 16 }}>
           <h3>Case Overview</h3>
           <p>
-            <strong>Title:</strong> {caseData.title ?? "—"}
+            <strong>Case Register No: </strong>{caseData.matterNumber ?? "_"}
           </p>
+          <p>
+            <strong>Case Title:</strong> {caseData.title ?? "—"}
+          </p>
+          
           <p>
             <strong>Status:</strong> <span className={`badge status-${caseData.status}`}>{caseData.status}</span>
           </p>
           <p>
             <strong>Stage:</strong> {caseData.stage ?? "—"}
           </p>
+          
+          <p>
+            <strong>Practice Area:</strong> {caseData.practiceArea ?? "—"}
+          </p>
           <p>
             <strong>Case Type:</strong> {caseData.caseType ?? "—"}
           </p>
-          <p>
+          {/* <p>
             <strong>Filing Date:</strong> {caseData.filingDate ? new Date(caseData.filingDate).toLocaleDateString() : "—"}
+          </p> */}
+          <p>
+            <strong>Court Name:</strong> {caseData.courtName ?? "—"}
           </p>
           <p>
-            <strong>Court:</strong> {caseData.courtName ?? "—"} {caseData.courtNumber ? `(No. ${caseData.courtNumber})` : ""}
+            <strong>Court Number:</strong> {caseData.courtNumber ?? "—"}
+          </p>
+          <p>
+            <strong>Court Case Number:</strong> {caseData.courtCaseNumber ?? "—"}
           </p>
           <p>
             <strong>Jurisdiction:</strong> {caseData.jurisdiction ?? "—"}
           </p>
+          <p>
+            <strong>Department:</strong> {caseData.department ?? "—"}
+          </p>
+          <p>
+            <strong>Opposite Party:</strong> {caseData.oppositeParty ?? "—"}
+          </p>
+          <p>
+            <strong>Opposite Counsel:</strong> {caseData.oppositeCounsel ?? "—"}
+          </p>
+          <p>
+            <strong>Description:</strong> {caseData.description ?? "—"}
+          </p>
+
+          <Link to="/client-portal" >Back </Link>
         </div>
 
         {hearings !== null && (

@@ -28,3 +28,22 @@ TESTING NOTE
 - TypeScript compilation was verified successfully.
 - The test runner could not start in the supplied Linux environment because the uploaded node_modules lacked the Linux-specific optional Rollup binary. Run npm ci on Hostinger/deployment environment, then npm test there.
 - No database migrations were run and no production database data was changed.
+
+
+ROLE PERMISSIONS - CAUSE LIST
+-----------------------------
+A separate CAUSE_LIST.VIEW permission has been added to the permission catalogue.
+After deploying the backend, run the existing seed command against the production
+DATABASE_URL to insert the new permission and its role defaults. The seed runs
+idempotently and does not overwrite existing role-default edits.
+
+Example (use the existing Managing Partner email and a safe password value):
+  npm run seed -- --name "Managing Partner" --email "EXISTING_MP_EMAIL" --password "TEMPORARY_VALUE"
+
+The permission defaults mirror HEARINGS.VIEW: Managing Partner, Associate,
+Junior Associate, and Office Staff are granted; Accounts Team is denied.
+Managing Partner can then adjust it in Role & Permissions > Role Defaults.
+
+The Cause List API now enforces CAUSE_LIST.VIEW for list and PDF/Excel export.
+The frontend sidebar and Cause List page read the current permission from
+GET /api/hearings/cause-list/access.

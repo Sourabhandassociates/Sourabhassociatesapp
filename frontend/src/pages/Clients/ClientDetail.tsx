@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
@@ -53,6 +54,12 @@ export default function ClientDetail() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+
+  const [credentialUsername, setCredentialUsername] = useState("");
+  const [credentialPassword, setCredentialPassword] = useState("");
+  const [credentialMessage, setCredentialMessage] = useState<string | null>(null);
+  const [credentialError, setCredentialError] = useState<string | null>(null);
+  const [credentialSaving, setCredentialSaving] = useState(false);
 
   const [portalError, setPortalError] = useState<string | null>(null);
   const [portalSaving, setPortalSaving] = useState<string | null>(null);
@@ -128,6 +135,36 @@ export default function ClientDetail() {
     }
   }
 
+  async function handleSaveCredentials(e: FormEvent) {
+    e.preventDefault();
+    if (!client) return;
+    setCredentialError(null);
+    setCredentialMessage(null);
+    setCredentialSaving(true);
+    try {
+      const payload: { clientId?: string; password?: string } = {};
+      if (credentialUsername.trim() && credentialUsername.trim() !== client.clientId) {
+        payload.clientId = credentialUsername.trim();
+      }
+      if (credentialPassword) payload.password = credentialPassword;
+      if (!payload.clientId && !payload.password) {
+        setCredentialError("Enter a new username or password.");
+        return;
+      }
+      const res = await api.patch(`/clients/${client.id}/credentials`, payload);
+      setCredentialUsername("");
+      setCredentialPassword("");
+      setCredentialMessage(
+        `Portal credentials updated. New username: ${res.data.clientId}${res.data.sessionsRevoked ? ". Existing client sessions were signed out." : ""}`
+      );
+      await load();
+    } catch (err) {
+      setCredentialError(getErrorMessage(err, "Failed to update client portal credentials."));
+    } finally {
+      setCredentialSaving(false);
+    }
+  }
+
   /** Soft Delete & Recycle Bin — never a real delete. */
   async function handleDelete() {
     if (!client) return;
@@ -189,47 +226,7 @@ export default function ClientDetail() {
       </style>
 
       {loading && !client ? (
-        <div
-          style={{
-            minHeight: 300,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 14,
-            padding: 30,
-          }}
-        >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              border: "4px solid #e5e7eb",
-              borderTop: "4px solid #2563eb",
-              borderRadius: "50%",
-              animation: "clientDetailSpin 0.8s linear infinite",
-            }}
-          />
-
-          <div
-            style={{
-              fontSize: 16,
-              fontWeight: 600,
-              color: "#374151",
-            }}
-          >
-            Loading...
-          </div>
-
-          <div
-            style={{
-              fontSize: 13,
-              color: "#6b7280",
-            }}
-          >
-            Please wait while we fetch client details.
-          </div>
-        </div>
+        <AppLoader size="lg" />
       ) : error && !client ? (
         <div
           style={{
@@ -382,6 +379,43 @@ export default function ClientDetail() {
               </form>
             )}
           </div>
+
+          {canEdit && (
+            <div className="card">
+              <h3>Client Portal Login Credentials</h3>
+              <p className="muted" style={{ fontSize: "0.85em", marginTop: -8 }}>
+                The Client ID is the client's portal username. Leave a field blank if you do not want to change it.
+              </p>
+              <form onSubmit={handleSaveCredentials}>
+                <label htmlFor="portalUsername">New Username / Client ID</label>
+                <input
+                  id="portalUsername"
+                  value={credentialUsername}
+                  onChange={(e) => setCredentialUsername(e.target.value)}
+                  placeholder={`Current: ${client.clientId}`}
+                  minLength={3}
+                  maxLength={64}
+                  autoComplete="off"
+                />
+                <label htmlFor="portalPassword">New Password</label>
+                <input
+                  id="portalPassword"
+                  type="password"
+                  value={credentialPassword}
+                  onChange={(e) => setCredentialPassword(e.target.value)}
+                  placeholder="Enter new password (minimum 8 characters)"
+                  minLength={8}
+                  maxLength={128}
+                  autoComplete="new-password"
+                />
+                {credentialError && <p className="error-text">{credentialError}</p>}
+                {credentialMessage && <p className="success-text">{credentialMessage}</p>}
+                <button className="primary" type="submit" disabled={credentialSaving}>
+                  {credentialSaving ? "Updating..." : "Update Username / Password"}
+                </button>
+              </form>
+            </div>
+          )}
 
           <div className="card">
             <h3>Portal Permissions</h3>

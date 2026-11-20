@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -40,6 +41,8 @@ function ButtonLoader() {
 /** Client-module optional-fields pass — only Client Name is mandatory. */
 export default function NewClient() {
   const [name, setName] = useState("");
+  const [clientUsername, setClientUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [type, setType] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -70,6 +73,8 @@ export default function NewClient() {
   ) {
     const res = await api.post("/clients", {
       name,
+      clientId: clientUsername.trim() || undefined,
+      password: password || undefined,
       type: type || undefined,
       email: email || undefined,
       phone: phone || undefined,
@@ -165,7 +170,7 @@ export default function NewClient() {
           }}
         >
           {navigating && <ButtonLoader />}
-          {navigating ? "Please wait..." : "Back to Clients"}
+          {navigating ? <AppLoader size="sm" inline /> : "Back to Clients"}
         </button>
       </div>
     );
@@ -205,6 +210,30 @@ export default function NewClient() {
           onChange={(e) => setName(e.target.value)}
           required
           disabled={submitting || conflictSubmitting}
+        />
+
+        <label htmlFor="clientUsername">Client Portal Username (optional)</label>
+        <input
+          id="clientUsername"
+          value={clientUsername}
+          onChange={(e) => setClientUsername(e.target.value)}
+          placeholder="Leave blank to generate a Client ID"
+          disabled={submitting || conflictSubmitting}
+          minLength={3}
+          maxLength={64}
+        />
+
+        <label htmlFor="clientPassword">Client Portal Password (optional)</label>
+        <input
+          id="clientPassword"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Leave blank to generate a temporary password"
+          disabled={submitting || conflictSubmitting}
+          minLength={8}
+          maxLength={128}
+          autoComplete="new-password"
         />
 
         <label htmlFor="type">
@@ -273,7 +302,7 @@ export default function NewClient() {
             }}
           >
             {submitting && <ButtonLoader />}
-            {submitting ? "Creating Client..." : "Create Client"}
+            {submitting ? <AppLoader size="sm" inline /> : "Create Client"}
           </button>
 
           <button

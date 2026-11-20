@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api/client";
@@ -45,7 +46,7 @@ export default function ContactDetail() {
 
   const canDelete = auth?.role === "MANAGING_PARTNER" || auth?.role === "ASSOCIATE" || auth?.role === "OFFICE_STAFF";
 
-  if (!contact) return <p>Loading…</p>;
+  if (!contact) return <AppLoader />;
 
   async function handleDelete() {
     if (!window.confirm(`Move contact "${contact!.name}" to the Recycle Bin?`)) return;

@@ -328,6 +328,7 @@ model Case {
   id              String     @id @default(cuid())
   matterNumber    String     @unique
   courtCaseNumber String?
+  bundleNumber    String?
   /// New Case form simplification (2026-08-11) — was required; the New Case screen
   /// no longer collects this, so it must be creatable blank. Matter Number remains
   /// the one guaranteed-present identifier for a case regardless of title.

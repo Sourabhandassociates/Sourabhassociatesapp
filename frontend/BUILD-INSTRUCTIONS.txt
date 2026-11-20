@@ -17,3 +17,13 @@ WINDOWS POWERSHELL
 If npm ci reports an installation error, do not delete package-lock.json. Send the complete npm ci error output.
 
 Do not upload node_modules. Do not upload .env files. This package does not include node_modules or a stale dist build.
+
+
+ROLE & PERMISSION MANAGEMENT UPDATE
+------------------------------------
+A new Cause List permission section is available after the backend permission
+catalogue is seeded. Deploy the backend first, run the backend seed command
+against the intended database, then deploy this frontend.
+
+Toast feedback is included for permission toggles, save/cancel actions, employee
+permission loading, override validation, grant/revoke, reset, and errors.

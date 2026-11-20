@@ -1,24 +1,65 @@
+
 import { Router } from "express";
 import { requireAuth } from "../../middleware/auth";
 import { requireStaff } from "../../middleware/rbac";
-import { attachEffectivePermissions, requirePermission } from "../../middleware/permissions";
+import {
+  attachEffectivePermissions,
+  requirePermission,
+} from "../../middleware/permissions";
 import { authRateLimit } from "../../middleware/rateLimit";
 import * as authController from "./auth.controller";
 
 export const authRouter = Router();
 
-// Credential-guessing surface — a tighter limit than the general API ceiling.
-authRouter.post("/login/staff", authRateLimit, authController.staffLogin);
-// Milestone 4 (SRD Section 28 — MFA) — the second login step when /login/staff
-// returned mfaRequired. Same tight rate limit as the first step (still a
-// credential-guessing surface, just for the second factor instead of the password).
-authRouter.post("/login/mfa", authRateLimit, authController.verifyMfaLogin);
-authRouter.post("/login/client", authRateLimit, authController.clientLogin);
-authRouter.post("/refresh", authRateLimit, authController.refresh);
-authRouter.post("/logout", requireAuth, authController.logout);
-// Inherently "my own data" — no role/permission gate, same as before Step 3.
-authRouter.get("/sessions/me", requireAuth, authController.mySessions);
-authRouter.post("/sessions/:sessionId/revoke", requireAuth, authController.revokeOwnSession);
+// Staff login
+authRouter.post(
+  "/login/staff",
+  authRateLimit,
+  authController.staffLogin
+);
+
+// MFA login
+authRouter.post(
+  "/login/mfa",
+  authRateLimit,
+  authController.verifyMfaLogin
+);
+
+// Client login
+authRouter.post(
+  "/login/client",
+  authRateLimit,
+  authController.clientLogin
+);
+
+// Refresh token
+authRouter.post(
+  "/refresh",
+  authRateLimit,
+  authController.refresh
+);
+
+// Logout
+authRouter.post(
+  "/logout",
+  requireAuth,
+  authController.logout
+);
+
+// Own sessions
+authRouter.get(
+  "/sessions/me",
+  requireAuth,
+  authController.mySessions
+);
+
+authRouter.post(
+  "/sessions/:sessionId/revoke",
+  requireAuth,
+  authController.revokeOwnSession
+);
+
+// Force logout a user
 authRouter.post(
   "/sessions/:userId/force-logout",
   requireAuth,
@@ -27,6 +68,8 @@ authRouter.post(
   requirePermission("USERS.FORCE_LOGOUT"),
   authController.forceLogoutUser
 );
+
+// View sessions for any user
 authRouter.get(
   "/sessions/:userId",
   requireAuth,
@@ -36,15 +79,26 @@ authRouter.get(
   authController.sessionsForAnyUser
 );
 
-// Milestone 4 (SRD Section 28 — MFA) — self-service enrollment/disable, no
-// permission gate beyond being an authenticated staff member (every role may opt in;
-// mandatory enforcement for Partner/Accounts is a login-flow nudge, not a route gate —
-// see auth.service.ts's module-level comment).
-authRouter.post("/mfa/enroll/begin", requireAuth, authController.beginMfaEnrollment);
-authRouter.post("/mfa/enroll/confirm", requireAuth, authController.confirmMfaEnrollment);
-authRouter.post("/mfa/disable", requireAuth, authController.disableMfa);
+// MFA enrollment
+authRouter.post(
+  "/mfa/enroll/begin",
+  requireAuth,
+  authController.beginMfaEnrollment
+);
 
-// Lightweight staff directory (id/name/role only) for assignment pickers — any authenticated staff member can read it, but never a Client.
+authRouter.post(
+  "/mfa/enroll/confirm",
+  requireAuth,
+  authController.confirmMfaEnrollment
+);
+
+authRouter.post(
+  "/mfa/disable",
+  requireAuth,
+  authController.disableMfa
+);
+
+// Staff directory
 authRouter.get(
   "/staff-directory",
   requireAuth,
@@ -54,7 +108,7 @@ authRouter.get(
   authController.staffDirectory
 );
 
-// SRD Section 3.1 — Managing Partner–only user management
+// Create user
 authRouter.post(
   "/users",
   requireAuth,
@@ -63,6 +117,8 @@ authRouter.post(
   requirePermission("USERS.CREATE"),
   authController.createUser
 );
+
+// List users
 authRouter.get(
   "/users",
   requireAuth,
@@ -71,6 +127,8 @@ authRouter.get(
   requirePermission("USERS.VIEW"),
   authController.listUsers
 );
+
+// Update user status
 authRouter.patch(
   "/users/:userId/status",
   requireAuth,
@@ -79,3 +137,15 @@ authRouter.patch(
   requirePermission("USERS.EDIT_STATUS"),
   authController.setUserStatus
 );
+
+// Delete user
+authRouter.delete(
+  "/users/:userId",
+  requireAuth,
+  requireStaff,
+  attachEffectivePermissions,
+  requirePermission("USERS.DELETE"),
+  authController.deleteUser
+);
+
+

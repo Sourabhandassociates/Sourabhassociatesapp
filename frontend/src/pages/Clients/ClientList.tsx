@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -141,24 +142,9 @@ export default function ClientList() {
                       }}
                     />
 
-                    <div
-                      style={{
-                        fontSize: 16,
-                        fontWeight: 600,
-                        color: "#374151",
-                      }}
-                    >
-                      Loading...
-                    </div>
+                    <AppLoader size="sm" />
 
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: "#6b7280",
-                      }}
-                    >
-                      Please wait while we fetch your clients.
-                    </div>
+                    
                   </div>
                 </td>
               </tr>

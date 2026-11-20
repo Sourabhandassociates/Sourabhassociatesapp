@@ -1,3 +1,4 @@
+import { AppLoader } from "../../components/AppLoader";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
@@ -89,44 +90,7 @@ export function CaseContentSection({
     }
   }
 
-  // Inline loading spinner
-  const Loader = ({ message }: { message: string }) => (
-    <div
-      style={{
-        minHeight: 160,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 12,
-      }}
-    >
-      <div
-        style={{
-          width: 34,
-          height: 34,
-          border: "3px solid var(--color-border-strong)",
-          borderTop: "3px solid var(--color-primary)",
-          borderRadius: "50%",
-          animation: "caseContentLoaderSpin 0.8s linear infinite",
-        }}
-      />
-
-      <style>
-        {`
-          @keyframes caseContentLoaderSpin {
-            to {
-              transform: rotate(360deg);
-            }
-          }
-        `}
-      </style>
-
-      <p className="muted" style={{ margin: 0 }}>
-        {message}
-      </p>
-    </div>
-  );
+  const Loader = (_props: { message: string }) => <AppLoader size="lg" />;
 
   if (loading) {
     return (

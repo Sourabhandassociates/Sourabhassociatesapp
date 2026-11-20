@@ -56,6 +56,7 @@ export function caseSectionPermissionFlags(actor: AuthorizedActor) {
 export interface CreateCaseInput {
   title?: string;
   practiceArea?: string;
+  bundleNumber?: string;
   courtCaseNumber?: string;
   courtName?: string;
   courtNumber?: string;
@@ -131,6 +132,7 @@ export async function createCase(actor: AccessTokenPayload, data: CreateCaseInpu
       matterNumber: await generateMatterNumber(),
       title: normalizeOptional(data.title),
       practiceArea: normalizeOptional(data.practiceArea),
+      bundleNumber: normalizeOptional(data.bundleNumber),
       courtCaseNumber: data.courtCaseNumber,
       courtName: data.courtName,
       courtNumber: normalizeOptional(data.courtNumber),
@@ -345,6 +347,7 @@ export async function getCase(actor: AuthorizedActor, caseId: string) {
 export interface UpdateCaseInput {
   title?: string;
   practiceArea?: string;
+  bundleNumber?: string;
   courtCaseNumber?: string;
   courtName?: string;
   courtNumber?: string;
@@ -361,6 +364,7 @@ export interface UpdateCaseInput {
 const UPDATE_CASE_DIFF_FIELDS = [
   "title",
   "practiceArea",
+  "bundleNumber",
   "courtCaseNumber",
   "courtName",
   "courtNumber",

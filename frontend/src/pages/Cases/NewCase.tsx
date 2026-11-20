@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import { getErrorMessage } from "../../api/errorMessage";
 import { SearchableSelect } from "../../components/SearchableSelect";
+import { AppLoader } from "../../components/AppLoader";
 
 interface ClientOption {
   id: string;
@@ -15,8 +16,11 @@ export default function NewCase() {
   const [title, setTitle] = useState("");
   const [courtCaseNumber, setCourtCaseNumber] = useState("");
   const [caseType, setCaseType] = useState("");
+  const [stage, setStage] = useState("");
+  const [practiceArea, setPracticeArea] = useState("");
   const [courtNumber, setCourtNumber] = useState("");
   const [courtName, setCourtName] = useState("");
+  const [bundleNumber, setBundleNumber] = useState("");
 
   const [clientId, setClientId] = useState("");
   const [partyRole, setPartyRole] = useState("Plaintiff");
@@ -27,7 +31,6 @@ export default function NewCase() {
   const [addingClient, setAddingClient] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
 
-  const [newClientId, setNewClientId] = useState("");
   const [newClientName, setNewClientName] = useState("");
 
   const [error, setError] = useState<string | null>(null);
@@ -55,8 +58,8 @@ export default function NewCase() {
     e.preventDefault();
     setClientError(null);
 
-    if (!newClientId.trim() || !newClientName.trim()) {
-      setClientError("Enter both Client ID and Client Name");
+    if (!newClientName.trim()) {
+      setClientError("Enter the client name");
       return;
     }
 
@@ -64,15 +67,13 @@ export default function NewCase() {
 
     try {
       const res = await api.post("/clients", {
-        clientId: newClientId.trim(),
         name: newClientName.trim(),
       });
 
-      const createdClient: ClientOption = res.data;
+      const createdClient: ClientOption = res.data.client;
       setClients((prev) => [...prev, createdClient]);
       setClientId(createdClient.id);
 
-      setNewClientId("");
       setNewClientName("");
       setAddingClient(false);
     } catch (err) {
@@ -91,15 +92,23 @@ export default function NewCase() {
       return;
     }
 
+    if (!caseType.trim() || !courtCaseNumber.trim() || !courtNumber.trim()) {
+      setError("Enter the Case Type, Court Case Number, and Court Number.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
       const res = await api.post("/cases", {
         title: title || undefined,
-        courtCaseNumber: courtCaseNumber || undefined,
-        caseType: caseType || undefined,
-        courtNumber: courtNumber || undefined,
+        courtCaseNumber: courtCaseNumber.trim(),
+        caseType: caseType.trim(),
+        stage: stage.trim() || undefined,
+        practiceArea: practiceArea.trim() || undefined,
+        courtNumber: courtNumber.trim(),
         courtName: courtName || undefined,
+        bundleNumber: bundleNumber.trim() || undefined,
         clients: [{ clientId, partyRole }],
       });
 
@@ -127,33 +136,68 @@ export default function NewCase() {
 
         <div className="form-grid">
           <div>
-            <label htmlFor="courtCaseNumber">Case No. (optional)</label>
+            <label htmlFor="courtCaseNumber">Court Case No.</label>
             <input
               id="courtCaseNumber"
               value={courtCaseNumber}
               onChange={(e) => setCourtCaseNumber(e.target.value)}
+              required
             />
           </div>
 
           <div>
-            <label htmlFor="caseType">Case Type (optional)</label>
+            <label htmlFor="caseType">Case Type</label>
             <SearchableSelect
               id="caseType"
               category="CASE_TYPE"
               value={caseType}
               onChange={setCaseType}
               placeholder="Select a type…"
+              required
             />
           </div>
         </div>
 
         <div className="form-grid">
           <div>
-            <label htmlFor="courtNumber">Court No. (optional)</label>
+            <label htmlFor="caseStage">Case Stage</label>
+            <SearchableSelect
+              id="caseStage"
+              category="CASE_STAGE"
+              value={stage}
+              onChange={setStage}
+              placeholder="Select case stage…"
+            />
+          </div>
+          <div>
+            <label htmlFor="practiceArea">Practice Area</label>
+            <SearchableSelect
+              id="practiceArea"
+              category="PRACTICE_AREA"
+              value={practiceArea}
+              onChange={setPracticeArea}
+              placeholder="Select practice area…"
+            />
+          </div>
+        </div>
+
+        <div className="form-grid">
+          <div>
+            <label htmlFor="bundleNumber">Bundle Number</label>
+            <input
+              id="bundleNumber"
+              value={bundleNumber}
+              onChange={(e) => setBundleNumber(e.target.value)}
+              placeholder="Enter Bundle Number"
+            />
+          </div>
+          <div>
+            <label htmlFor="courtNumber">Court No.</label>
             <input
               id="courtNumber"
               value={courtNumber}
               onChange={(e) => setCourtNumber(e.target.value)}
+              required
             />
           </div>
 
@@ -181,7 +225,7 @@ export default function NewCase() {
               disabled={loadingClients}
             >
               <option value="">
-                {loadingClients ? "Loading clients..." : "Select client…"}
+                {loadingClients ? "" : "Select client…"}
               </option>
 
               {clients.map((c) => (
@@ -191,9 +235,7 @@ export default function NewCase() {
               ))}
             </select>
 
-            {loadingClients && (
-              <p className="loading-text">Loading clients...</p>
-            )}
+            {loadingClients && <AppLoader size="sm" />}
           </div>
 
           <div>
@@ -223,15 +265,6 @@ export default function NewCase() {
           <div className="card" style={{ marginTop: 16 }}>
             <h3>Add New Client</h3>
 
-            <label htmlFor="newClientId">Client ID</label>
-            <input
-              id="newClientId"
-              value={newClientId}
-              onChange={(e) => setNewClientId(e.target.value)}
-              placeholder="Enter client ID"
-              required
-            />
-
             <label htmlFor="newClientName">Client Name</label>
             <input
               id="newClientName"
@@ -253,7 +286,7 @@ export default function NewCase() {
               }
               disabled={savingClient}
             >
-              {savingClient ? "Saving Client..." : "Save Client"}
+              {savingClient ? <AppLoader size="sm" inline /> : "Save Client"}
             </button>
           </div>
         )}
@@ -266,7 +299,7 @@ export default function NewCase() {
             type="submit"
             disabled={submitting || loadingClients || clients.length === 0}
           >
-            {submitting ? "Creating Case..." : "Create Case"}
+            {submitting ? <AppLoader size="sm" inline /> : "Create Case"}
           </button>
 
           <button

@@ -28,6 +28,10 @@ const causeListQuerySchema = z
     message: "employeeId is required when scope is EMPLOYEE",
   });
 
+export async function getCauseListAccess(req: Request, res: Response) {
+  res.json({ view: req.actor?.effectivePermissions?.has("CAUSE_LIST.VIEW") ?? false });
+}
+
 export async function listCauseList(req: Request, res: Response) {
   const filters = parseBody(causeListQuerySchema, req.query);
   const result = await causeListService.listCauseList(req.actor!, filters);

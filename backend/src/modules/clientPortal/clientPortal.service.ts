@@ -3,7 +3,11 @@ import { prisma } from "../../config/prisma";
 import { env } from "../../config/env";
 import { AccessTokenPayload } from "../../utils/jwt";
 import { NotFoundError } from "../../utils/errors";
-import { loadActiveClientActor, requirePortalFlag, assertClientOwnsCase } from "../../utils/clientPortalAuthorization";
+import {
+  loadActiveClientActor,
+  requirePortalFlag,
+  assertClientOwnsCase,
+} from "../../utils/clientPortalAuthorization";
 
 /**
  * Client Portal Permissions (2026-08-14). Every function here is read-only and
@@ -30,51 +34,150 @@ export async function getMyProfile(actor: AccessTokenPayload) {
   };
 }
 
+// export async function listMyCases(actor: AccessTokenPayload) {
+//   const client = await loadActiveClientActor(actor);
+//   requirePortalFlag(client, "portalCasesEnabled", "List of Cases");
+
+//   const links = await prisma.caseClient.findMany({
+//     where: {
+//       clientId: client.id,
+//       case: { deletedAt: null },
+//     },
+//     include: {
+//       case: {
+//         select: {
+//           id: true,
+//           matterNumber: true,
+//           caseType: true,
+//           courtCaseNumber: true,
+//           title: true,
+//           status: true,
+//           stage: true,
+//           filingDate: true,
+//           courtName: true,
+//           courtNumber: true,
+//         },
+//       },
+//     },
+//     orderBy: {
+//       case: { createdAt: "desc" },
+//     },
+//   });
+
+//   return links.map((link) => ({
+//     partyRole: link.partyRole,
+//     case: link.case,
+//   }));
+// }
+
 export async function listMyCases(actor: AccessTokenPayload) {
   const client = await loadActiveClientActor(actor);
+
   requirePortalFlag(client, "portalCasesEnabled", "List of Cases");
 
   const links = await prisma.caseClient.findMany({
-    where: { clientId: client.id, case: { deletedAt: null } },
+    where: {
+      clientId: client.id,
+      case: {
+        deletedAt: null,
+      },
+    },
     include: {
       case: {
         select: {
           id: true,
           matterNumber: true,
+          caseType: true,
+          courtCaseNumber: true,
           title: true,
           status: true,
           stage: true,
           filingDate: true,
           courtName: true,
+          courtNumber: true,
         },
       },
     },
-    orderBy: { case: { createdAt: "desc" } },
+    orderBy: {
+      case: {
+        createdAt: "desc",
+      },
+    },
   });
-  return links.map((link) => ({ partyRole: link.partyRole, case: link.case }));
+
+  // DEBUG: Check actual database response
+console.log(
+  "CLIENT PORTAL CASES FROM DATABASE:",
+  JSON.stringify(links, null, 2)
+);
+
+  return links.map((link) => ({
+    partyRole: link.partyRole,
+    case: {
+      ...link.case,
+      // Keep the client portal response shape stable even for legacy records.
+      caseType: link.case.caseType ?? null,
+      courtCaseNumber: link.case.courtCaseNumber ?? null,
+      courtNumber: link.case.courtNumber ?? null,
+      courtName: link.case.courtName ?? null,
+    },
+  }));
 }
+
+// export async function getMyCase(actor: AccessTokenPayload, caseId: string) {
+//   const client = await loadActiveClientActor(actor);
+//   requirePortalFlag(client, "portalCasesEnabled", "List of Cases");
+//   await assertClientOwnsCase(actor, caseId);
+
+//   return prisma.case.findUniqueOrThrow({
+//     where: { id: caseId },
+//     select: {
+//       id: true,
+//       matterNumber: true,
+//       title: true,
+//       status: true,
+//       stage: true,
+//       caseType: true,
+//       filingDate: true,
+//       courtName: true,
+//       courtNumber: true,
+//       courtCaseNumber: true,
+//       jurisdiction: true,
+//       department: true,
+//     },
+//   });
+// }
 
 export async function getMyCase(actor: AccessTokenPayload, caseId: string) {
   const client = await loadActiveClientActor(actor);
   requirePortalFlag(client, "portalCasesEnabled", "List of Cases");
   await assertClientOwnsCase(actor, caseId);
 
-  return prisma.case.findUniqueOrThrow({
+  const caseData = await prisma.case.findUniqueOrThrow({
     where: { id: caseId },
     select: {
       id: true,
       matterNumber: true,
       title: true,
+      practiceArea: true,
       status: true,
       stage: true,
       caseType: true,
       filingDate: true,
       courtName: true,
       courtNumber: true,
+      courtCaseNumber: true,
       jurisdiction: true,
       department: true,
+      description: true,
+      oppositeCounsel: true,
+      oppositeParty: true,
     },
   });
+
+  console.log("COURT CASE NUMBER:", caseData.courtCaseNumber);
+
+  return caseData;
 }
 
 /** caseId is optional — omitted, this returns hearings across every one of the
@@ -105,7 +208,7 @@ export async function listMyHearings(actor: AccessTokenPayload, caseId?: string)
       purpose: true,
       outcomeNotes: true,
       status: true,
-      case: { select: { matterNumber: true, title: true } },
+      case: { select: { matterNumber: true, title: true, caseType: true } },
     },
     orderBy: { hearingDate: "desc" },
   });
@@ -138,7 +241,11 @@ export async function listMyDocuments(actor: AccessTokenPayload, caseId?: string
       category: true,
       createdAt: true,
       case: { select: { matterNumber: true, title: true } },
-      versions: { orderBy: { versionNumber: "desc" }, take: 1, select: { versionNumber: true, fileName: true } },
+      versions: {
+        orderBy: { versionNumber: "desc" },
+        take: 1,
+        select: { versionNumber: true, fileName: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -162,7 +269,11 @@ export async function getMyDocumentDownload(actor: AccessTokenPayload, documentI
       case: { deletedAt: null, clients: { some: { clientId: client.id } } },
     },
     select: {
-      versions: { orderBy: { versionNumber: "desc" }, take: 1, select: { storagePath: true, fileName: true } },
+      versions: {
+        orderBy: { versionNumber: "desc" },
+        take: 1,
+        select: { storagePath: true, fileName: true },
+      },
     },
   });
   const version = document?.versions[0];

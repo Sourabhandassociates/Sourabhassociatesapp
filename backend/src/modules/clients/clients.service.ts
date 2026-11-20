@@ -3,7 +3,7 @@ import { ClientStatus } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { generateClientId } from "../../utils/idGenerator";
 import { hashPassword } from "../../utils/password";
-import { NotFoundError } from "../../utils/errors";
+import { ConflictError, NotFoundError, BadRequestError } from "../../utils/errors";
 import { assertClientAccess, clientScopeWhere, caseScopeWhere } from "../../utils/authorization";
 import { recordAuditLog, diffObjects } from "../../utils/auditLog";
 import { logConflictOverride, requireConflictClearance, ConflictAcknowledgement } from "../../utils/conflictCheck";
@@ -20,6 +20,8 @@ export interface CreateClientInput extends ConflictAcknowledgement {
   email?: string;
   phone?: string;
   address?: string;
+  clientId?: string;
+  password?: string;
 }
 
 /** A blank/whitespace-only string is treated the same as "not supplied" — stored as
@@ -43,11 +45,14 @@ export async function createClient(actor: AccessTokenPayload, input: CreateClien
   const name = input.name.trim();
   const matches = await requireConflictClearance(actor, name, input);
 
-  const clientId = await generateClientId();
+  const clientId = normalizeOptional(input.clientId) ?? await generateClientId();
+  if (await prisma.client.findUnique({ where: { clientId } })) {
+    throw new ConflictError("This client username / Client ID is already in use");
+  }
   // System-generated, not user-chosen, so complexity rules (utils/validators.ts's
   // passwordSchema) don't apply the same way — what matters here is entropy: 12 random
   // bytes is 96 bits, comfortably above the staff password policy's floor.
-  const temporaryPassword = crypto.randomBytes(12).toString("base64url");
+  const temporaryPassword = input.password ?? crypto.randomBytes(12).toString("base64url");
   const passwordHash = await hashPassword(temporaryPassword);
 
   const client = await prisma.client.create({
@@ -134,6 +139,47 @@ export async function resetClientPassword(
     clientId: client.clientId,
     temporaryPassword,
   };
+}
+
+/** Update Client Portal login credentials. Client ID is the portal username.
+ * Passwords are stored only as hashes; password changes revoke active sessions. */
+export async function updateClientCredentials(
+  actor: AccessTokenPayload,
+  id: string,
+  input: { clientId?: string; password?: string },
+) {
+  const client = await assertClientAccess(actor, id);
+  const nextClientId = input.clientId?.trim();
+  const nextPassword = input.password;
+
+  if (!nextClientId && !nextPassword) {
+    throw new BadRequestError("Enter a new username or password");
+  }
+  if (nextClientId && nextClientId !== client.clientId) {
+    const existing = await prisma.client.findUnique({ where: { clientId: nextClientId } });
+    if (existing && existing.id !== client.id) {
+      throw new ConflictError("This username / Client ID is already in use");
+    }
+  }
+
+  const data: { clientId?: string; passwordHash?: string } = {};
+  if (nextClientId) data.clientId = nextClientId;
+  if (nextPassword) data.passwordHash = await hashPassword(nextPassword);
+
+  const updated = await prisma.client.update({ where: { id }, data });
+  if (nextPassword || nextClientId) {
+    await prisma.clientSession.updateMany({
+      where: { clientId: id, status: "ACTIVE" },
+      data: { status: "REVOKED", revokedReason: "Client portal credentials changed" },
+    });
+  }
+
+  await recordAuditLog(actor, "CLIENT_CREDENTIALS_UPDATED", "Client", id, {
+    entityName: updated.clientId,
+    details: [nextClientId ? "username changed" : null, nextPassword ? "password changed" : null].filter(Boolean).join(", "),
+  });
+
+  return { clientId: updated.clientId, name: updated.name, sessionsRevoked: Boolean(nextPassword || nextClientId) };
 }
 
 /** SRD Section 3.2 — Associates/Junior Associates only see clients linked to a case they have access to. */

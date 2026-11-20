@@ -1,14 +1,24 @@
+import { AppLoader } from "../components/AppLoader";
+
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/useAuth";
 import { getErrorMessage } from "../api/errorMessage";
 
-/** Renders the firm logo if `frontend/public/logo.png` exists; falls back to a
- * plain brand-color square (never a broken-image icon) until it's supplied. */
+/** Renders the firm logo if frontend/public/logo.png exists */
 function LoginLogo() {
   const [failed, setFailed] = useState(false);
+
   if (failed) return <div className="brand-mark" />;
-  return <img src="/logo.png" alt="S&A LEGAL" onError={() => setFailed(true)} />;
+
+  return (
+    <img
+      src="/logo.png"
+      alt="S&A LEGAL"
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 export default function Login() {
@@ -16,12 +26,15 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [clientId, setClientId] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  /** Milestone 4 (SRD Section 28 — MFA) — set once loginStaff reports mfaRequired;
-   * the form then swaps to a second-factor code prompt instead of email/password. */
+
+  /** MFA */
   const [mfaChallengeToken, setMfaChallengeToken] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
+
   const { loginStaff, completeMfaLogin, loginClient } = useAuth();
   const navigate = useNavigate();
 
@@ -29,9 +42,11 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+
     try {
       if (mode === "staff") {
         const result = await loginStaff(email, password);
+
         if (result?.mfaRequired) {
           setMfaChallengeToken(result.mfaChallengeToken);
           return;
@@ -39,6 +54,7 @@ export default function Login() {
       } else {
         await loginClient(clientId, password);
       }
+
       navigate("/dashboard");
     } catch (err) {
       setError(getErrorMessage(err, "Login failed"));
@@ -49,9 +65,12 @@ export default function Login() {
 
   async function handleMfaSubmit(e: FormEvent) {
     e.preventDefault();
+
     if (!mfaChallengeToken) return;
+
     setError(null);
     setSubmitting(true);
+
     try {
       await completeMfaLogin(mfaChallengeToken, mfaCode);
       navigate("/dashboard");
@@ -62,6 +81,7 @@ export default function Login() {
     }
   }
 
+  /** MFA Verification Screen */
   if (mfaChallengeToken) {
     return (
       <div className="login-page">
@@ -69,11 +89,14 @@ export default function Login() {
           <div className="login-logo">
             <LoginLogo />
           </div>
+
           <h1>S&amp;A LEGAL</h1>
-          <p className="subtitle">Two-Factor Authentication</p>
 
           <form onSubmit={handleMfaSubmit}>
-            <label htmlFor="mfaCode">Authenticator Code or Backup Code</label>
+            <label htmlFor="mfaCode">
+              Authenticator Code or Backup Code
+            </label>
+
             <input
               id="mfaCode"
               value={mfaCode}
@@ -81,10 +104,18 @@ export default function Login() {
               autoFocus
               required
             />
+
             {error && <p className="error-text">{error}</p>}
-            <button className="primary" type="submit" disabled={submitting} style={{ width: "100%" }}>
-              {submitting ? "Verifying…" : "Verify"}
+
+            <button
+              className="primary"
+              type="submit"
+              disabled={submitting}
+              style={{ width: "100%" }}
+            >
+              {submitting ? <AppLoader size="sm" inline /> : "Verify"}
             </button>
+
             <button
               type="button"
               style={{ width: "100%", marginTop: 8 }}
@@ -102,19 +133,28 @@ export default function Login() {
     );
   }
 
+  /** Login Screen */
   return (
     <div className="login-page">
       <div className="login-card">
         <div className="login-logo">
           <LoginLogo />
         </div>
+
         <h1>S&amp;A LEGAL</h1>
+
         <p className="subtitle">Law Firm Management Portal</p>
 
+        {/* Login Tabs */}
         <div className="tab-row">
-          <button type="button" className={mode === "staff" ? "active" : ""} onClick={() => setMode("staff")}>
+          <button
+            type="button"
+            className={mode === "staff" ? "active" : ""}
+            onClick={() => setMode("staff")}
+          >
             Staff Login
           </button>
+
           <button
             type="button"
             className={mode === "client" ? "active" : ""}
@@ -125,20 +165,24 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* Staff Email / Client ID */}
           {mode === "staff" ? (
             <>
               <label htmlFor="email">Email</label>
+
               <input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                placeholder="Enter Your Email"
               />
             </>
           ) : (
             <>
               <label htmlFor="clientId">Client ID</label>
+
               <input
                 id="clientId"
                 placeholder="SA-CLI-000001"
@@ -149,18 +193,64 @@ export default function Login() {
             </>
           )}
 
+          {/* Password with Eye Icon Inside Input */}
           <label htmlFor="password">Password</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
 
+          <div style={{ position: "relative", width: "100%" }}>
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Enter Your Password"
+              style={{
+                width: "100%",
+                paddingRight: "45px",
+              }}
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              style={{
+                position: "absolute",
+                right: "10px",
+                top: "38%",
+                transform: "translateY(-50%)",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                padding: "4px",
+                margin: 0,
+                cursor: "pointer",
+                color: "#777",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 2,
+              }}
+            >
+              {showPassword ? (
+                <EyeOff size={19} />
+              ) : (
+                <Eye size={19} />
+              )}
+            </button>
+          </div>
+
+          {/* Error Message */}
           {error && <p className="error-text">{error}</p>}
 
-          <button className="primary" type="submit" disabled={submitting} style={{ width: "100%" }}>
+          {/* Submit Button */}
+          <button
+            className="primary"
+            type="submit"
+            disabled={submitting}
+            style={{ width: "100%" }}
+          >
             {submitting ? "Signing in…" : "Sign In"}
           </button>
         </form>
