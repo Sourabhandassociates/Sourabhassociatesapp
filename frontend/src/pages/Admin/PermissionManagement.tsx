@@ -142,11 +142,10 @@ interface PermissionMatrixRow {
 function RoleDefaultsTab() {
   const { toast, showToast } = usePermissionToast();
   const [rows, setRows] = useState<RoleDefaultRow[] | null>(null);
-  const [pending, setPending] = useState<Map<string, boolean>>(new Map()); // "ROLE:PERMISSION.KEY" -> staged value
+  const [savingKey, setSavingKey] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
   const load = useCallback(() => {
     setError(null);
@@ -197,58 +196,36 @@ function RoleDefaultsTab() {
   }
 
   function currentValue(role: string, row: PermissionMatrixRow): boolean {
-    const key = cellKey(role, row.permission.key);
-    return pending.has(key) ? pending.get(key)! : row.grants[role];
+    return row.grants[role] ?? false;
   }
 
-  function toggle(role: string, row: PermissionMatrixRow) {
-    if (isLocked(role, row.permission)) return;
+  async function toggle(role: string, row: PermissionMatrixRow) {
+    if (isLocked(role, row.permission) || savingKey !== null) return;
+
     const key = cellKey(role, row.permission.key);
-    const next = new Map(pending);
     const newValue = !currentValue(role, row);
-    if (newValue === row.grants[role]) {
-      next.delete(key); // reverted to original value — no longer a pending change
-    } else {
-      next.set(key, newValue);
-    }
-    setPending(next);
-    showToast(`${row.permission.label}: ${newValue ? "enabled" : "disabled"} for ${ROLE_LABELS[role]}.`, "info");
-  }
-
-  function cancel() {
-    setPending(new Map());
-    showToast("Pending permission changes discarded.", "info");
-  }
-
-  async function save() {
-    if (pending.size === 0) return;
-    const count = pending.size;
-    const confirmed = window.confirm(
-      `Save ${count} permission change${count === 1 ? "" : "s"}? This changes what every user with the affected role(s) can do immediately.`
-    );
-    if (!confirmed) return;
-
-    setSaving(true);
+    setSavingKey(key);
     setError(null);
     setSuccess(null);
+
     try {
-      const changes = [...pending.entries()].map(([key, granted]) => {
-        const separatorIndex = key.indexOf(":");
-        return { role: key.slice(0, separatorIndex), permissionKey: key.slice(separatorIndex + 1), granted };
+      await api.patch("/permissions/role-defaults", {
+        changes: [{ role, permissionKey: row.permission.key, granted: newValue }],
       });
-      const res = await api.patch("/permissions/role-defaults", { changes });
-      setPending(new Map());
-      const message = `Saved ${res.data.updated} change${res.data.updated === 1 ? "" : "s"}.`;
+
+      const refreshed = await api.get("/permissions/role-defaults");
+      setRows(refreshed.data);
+
+      const message = `${row.permission.label}: ${newValue ? "enabled" : "disabled"} for ${ROLE_LABELS[role]}.`;
       setSuccess(message);
       showToast(message);
-      load();
-      setTimeout(() => setSuccess(null), 4000);
+      window.setTimeout(() => setSuccess(null), 3500);
     } catch (err) {
-      const message = getErrorMessage(err, "Failed to save changes");
+      const message = getErrorMessage(err, "Failed to save permission change");
       setError(message);
       showToast(message, "error");
     } finally {
-      setSaving(false);
+      setSavingKey(null);
     }
   }
 
@@ -259,22 +236,6 @@ function RoleDefaultsTab() {
       <ToastViewport toast={toast} />
       {error && <p className="error-text">{error}</p>}
       {success && <p className="success-text">{success}</p>}
-
-      {pending.size > 0 && (
-        <div className="banner">
-          <span>
-            {pending.size} unsaved change{pending.size === 1 ? "" : "s"}
-          </span>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="secondary" onClick={cancel} disabled={saving}>
-              Cancel
-            </button>
-            <button className="primary" onClick={save} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="card">
         <label htmlFor="permission-search">Search Permission</label>
@@ -334,22 +295,24 @@ function RoleDefaultsTab() {
                     {ROLES.map((role) => {
                       const locked = isLocked(role, row.permission);
                       const key = cellKey(role, row.permission.key);
-                      const isPending = pending.has(key);
+                      const isSaving = savingKey === key;
                       return (
                         <td key={role}>
                           <input
                             type="checkbox"
                             checked={currentValue(role, row)}
-                            disabled={locked}
+                            disabled={locked || savingKey !== null}
                             onChange={() => toggle(role, row)}
                             className={locked ? "locked-cell" : undefined}
-                            title={locked ? "Required for Managing Partner Safety — cannot be removed" : undefined}
+                            title={
+                              locked
+                                ? "Required for Managing Partner Safety — cannot be removed"
+                                : isSaving
+                                  ? "Saving permission…"
+                                  : "Changes are saved automatically"
+                            }
                           />
-                          {isPending && (
-                            <span className="badge pending-change" style={{ marginLeft: 6 }}>
-                              unsaved
-                            </span>
-                          )}
+                          {isSaving && <span className="muted" style={{ marginLeft: 6 }}>Saving…</span>}
                         </td>
                       );
                     })}
