@@ -253,6 +253,7 @@ model Client {
   id           String       @id @default(cuid())
   clientId     String       @unique
   name         String
+  newname      String?
   /// Step 4 — migrated from the ClientType enum to the Picklist system
   /// (PicklistCategory.CLIENT_TYPE), matching Case.stage/caseType/etc.'s
   /// existing free-text-validated-by-UI-curation convention.

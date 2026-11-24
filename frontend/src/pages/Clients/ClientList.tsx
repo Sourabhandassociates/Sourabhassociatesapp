@@ -9,6 +9,7 @@ interface Client {
   id: string;
   clientId: string;
   name: string;
+  newname:string;
   type: string | null;
   email: string | null;
   status: string;
@@ -109,6 +110,7 @@ export default function ClientList() {
           <thead>
             <tr>
               <th>Client ID</th>
+              <th>User Name</th>
               <th>Name</th>
               <th>Type</th>
               <th>Email</th>
@@ -119,7 +121,7 @@ export default function ClientList() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <div
                     style={{
                       minHeight: 220,
@@ -190,6 +192,7 @@ export default function ClientList() {
                 >
                   <td>{c.clientId}</td>
                   <td>{c.name}</td>
+                  <td>{c.newname}</td>
                   <td>{c.type ?? "—"}</td>
                   <td>{c.email ?? "—"}</td>
                   <td>

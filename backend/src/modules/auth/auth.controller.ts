@@ -14,7 +14,15 @@ import {
 } from "../../utils/cookies";
 
 const staffLoginSchema = z.object({ email: z.string().email(), password: z.string().min(1) });
-const clientLoginSchema = z.object({ clientId: z.string().min(1), password: z.string().min(1) });
+const clientLoginSchema = z.object({
+  identifier: z.string().trim().min(1).optional(),
+  // Keep accepting clientId for older app versions during rollout.
+  clientId: z.string().trim().min(1).optional(),
+  password: z.string().min(1),
+}).refine((data) => Boolean(data.identifier || data.clientId), {
+  message: "Enter your Client ID or registered name",
+  path: ["identifier"],
+});
 
 function deviceInfoFrom(req: Request): string {
   return (req.body?.deviceLabel as string) || req.headers["user-agent"] || "unknown device";
@@ -59,7 +67,7 @@ export async function verifyMfaLogin(req: Request, res: Response) {
 
 export async function clientLogin(req: Request, res: Response) {
   const data = parseBody(clientLoginSchema, req.body);
-  const result = await authService.loginClient(data.clientId, data.password, deviceInfoFrom(req));
+  const result = await authService.loginClient(data.identifier || data.clientId!, data.password, deviceInfoFrom(req));
   respondWithSession(req, res, result, { client: result.client });
 }
 

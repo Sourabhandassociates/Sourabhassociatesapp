@@ -9,7 +9,7 @@ interface CalendarCaseDetails {
   caseType?: string | null;
   courtNumber?: string | null;
   courtName?: string | null;
-   courtCaseNumber? :string | null ;
+  courtCaseNumber?: string | null;
   bundleNumber?: string | null;
 }
 
@@ -418,13 +418,12 @@ export default function HearingCalendar() {
               <table>
                 <thead>
                   <tr>
-                    <th>Case Type</th>
-                    <th>Case Number</th>
                     <th>Bundle Number</th>
-                    <th>Court Case Number</th>
-                    <th>Cause Title</th>
+                    <th>Case Type</th>
+                    <th> Case Number</th>
                     <th>Court Number</th>
                     <th>Court Complex</th>
+                    <th>Cause Title</th>
                     <th>Hearing Status</th>
                   </tr>
                 </thead>
@@ -435,9 +434,10 @@ export default function HearingCalendar() {
 
                     return (
                       <tr key={hearing.id}>
+                        <td>{displayValue(caseRecord?.bundleNumber)}</td>
                         <td>{displayValue(caseRecord?.caseType)}</td>
 
-                        <td>
+                        {/* <td>
                           {caseRecord?.id ? (
                             <Link to={`/cases/${caseRecord.id}`}>
                               {displayValue(caseRecord.matterNumber)}
@@ -445,21 +445,23 @@ export default function HearingCalendar() {
                           ) : (
                             "—"
                           )}
-                        </td>
+                        </td> */}
 
-                        <td>{displayValue(caseRecord?.bundleNumber)}</td>
+                        
 
                         <td>
                           {displayValue(caseRecord?.courtCaseNumber)}
                         </td>
+                           <td>{displayValue(caseRecord?.courtNumber)}</td>
 
-                        <td>{displayValue(caseRecord?.title)}</td>
+                       
 
-                        <td>{displayValue(caseRecord?.courtNumber)}</td>
+                     
 
                         <td>
                           {displayValue(caseRecord?.courtName, hearing.courtName)}
                         </td>
+                         <td>{displayValue(caseRecord?.title)}</td>
 
                         <td>
                           <span className="badge">{hearing.status}</span>

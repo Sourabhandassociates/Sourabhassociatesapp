@@ -180,28 +180,43 @@ export async function disableMfa(userId: string, currentPassword: string) {
   await recordAuditLog({ sub: userId, role: user.role }, "AUTH_MFA_DISABLED", "User", userId, { entityName: user.name });
 }
 
-/** SRD Section 3.6 + Section 11.1 — client login via Client ID instead of email. */
-export async function loginClient(clientId: string, password: string, deviceInfo: string) {
-  const client = await prisma.client.findUnique({ where: { clientId } });
-  // Step 2 — Soft Delete & Recycle Bin: a soft-deleted client is treated identically to
-  // a non-existent one for login purposes, same as every other normal-access path.
-  if (!client || client.deletedAt || client.status !== "ACTIVE") {
-    logSecurityEvent("AUTH_LOGIN_FAILURE", {
-      message: "Client login failed",
-      clientId,
-      reason: !client || client.deletedAt ? "no-such-client" : "account-inactive",
+/** Client login accepts either the unique Client ID or the registered client name. */
+export async function loginClient(identifier: string, password: string, deviceInfo: string) {
+  const value = identifier.trim();
+  let client = await prisma.client.findUnique({ where: { clientId: value } });
+  let passwordVerified = false;
+
+  if (client) {
+    passwordVerified = await comparePassword(password, client.passwordHash);
+  } else {
+    // Names are not unique. Only proceed when exactly one active exact-name
+    // account matches the supplied password.
+    const namedClients = await prisma.client.findMany({
+      where: {
+        name: { equals: value, mode: "insensitive" },
+        deletedAt: null,
+        status: "ACTIVE",
+      },
     });
-    throw new UnauthorizedError("Invalid Client ID or password");
+    const matchingClients = [];
+    for (const candidate of namedClients) {
+      if (await comparePassword(password, candidate.passwordHash)) {
+        matchingClients.push(candidate);
+      }
+    }
+    if (matchingClients.length === 1) {
+      client = matchingClients[0];
+      passwordVerified = true;
+    }
   }
-  const valid = await comparePassword(password, client.passwordHash);
-  if (!valid) {
+
+  if (!client || client.deletedAt || client.status !== "ACTIVE" || !passwordVerified) {
     logSecurityEvent("AUTH_LOGIN_FAILURE", {
       message: "Client login failed",
-      clientId,
-      actorId: client.id,
-      reason: "wrong-password",
+      identifier: value,
+      reason: !client || client.deletedAt ? "no-such-client" : !passwordVerified ? "wrong-password-or-ambiguous-name" : "account-inactive",
     });
-    throw new UnauthorizedError("Invalid Client ID or password");
+    throw new UnauthorizedError("Invalid Client ID/name or password");
   }
 
   const session = await prisma.clientSession.create({

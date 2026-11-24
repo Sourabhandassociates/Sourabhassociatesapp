@@ -24,7 +24,7 @@ function LoginLogo() {
 export default function Login() {
   const [mode, setMode] = useState<"staff" | "client">("staff");
   const [email, setEmail] = useState("");
-  const [clientId, setClientId] = useState("");
+  const [clientIdentifier, setClientIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
@@ -52,7 +52,7 @@ export default function Login() {
           return;
         }
       } else {
-        await loginClient(clientId, password);
+        await loginClient(clientIdentifier, password);
       }
 
       navigate("/dashboard");
@@ -165,7 +165,7 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Staff Email / Client ID */}
+          {/* Staff Email / Client ID or registered client name */}
           {mode === "staff" ? (
             <>
               <label htmlFor="email">Email</label>
@@ -181,13 +181,13 @@ export default function Login() {
             </>
           ) : (
             <>
-              <label htmlFor="clientId">Client ID</label>
+              <label htmlFor="clientIdentifier">Client ID or Client Name</label>
 
               <input
-                id="clientId"
-                placeholder="SA-CLI-000001"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
+                id="clientIdentifier"
+                placeholder="Enter Client ID or registered name"
+                value={clientIdentifier}
+                onChange={(e) => setClientIdentifier(e.target.value)}
                 required
               />
             </>

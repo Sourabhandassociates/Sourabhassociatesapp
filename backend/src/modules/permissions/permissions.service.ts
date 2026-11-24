@@ -82,30 +82,34 @@ export async function updateRoleDefaults(actor: AuthorizedActor, changes: RoleDe
   });
   const currentByRolePermission = new Map(currentRows.map((row) => [`${row.role}:${row.permissionId}`, row]));
 
+  // Treat a missing matrix row as an initial deny and create it on demand. This
+  // prevents a checkbox from appearing to save while silently remaining unchecked
+  // when a newly-added permission has not yet been seeded for a particular role.
   const actualChanges = changes.filter((change) => {
     const permission = permissionByKey.get(change.permissionKey)!;
     const current = currentByRolePermission.get(`${change.role}:${permission.id}`);
-    return current !== undefined && current.granted !== change.granted;
+    return current ? current.granted !== change.granted : change.granted;
   });
 
   if (actualChanges.length > 0) {
     await prisma.$transaction(
       actualChanges.map((change) => {
         const permission = permissionByKey.get(change.permissionKey)!;
-        return prisma.rolePermission.update({
+        return prisma.rolePermission.upsert({
           where: { role_permissionId: { role: change.role, permissionId: permission.id } },
-          data: { granted: change.granted, updatedById: actor.sub },
+          update: { granted: change.granted, updatedById: actor.sub },
+          create: { role: change.role, permissionId: permission.id, granted: change.granted, updatedById: actor.sub },
         });
       })
     );
 
     for (const change of actualChanges) {
       const permission = permissionByKey.get(change.permissionKey)!;
-      const previous = currentByRolePermission.get(`${change.role}:${permission.id}`)!;
+      const previous = currentByRolePermission.get(`${change.role}:${permission.id}`);
       await recordAuditLog(actor, "ROLE_PERMISSION_CHANGED", "RolePermission", `${change.role}:${permission.key}`, {
         entityName: `${permission.key} (${change.role})`,
-        details: `${previous.granted} -> ${change.granted}`,
-        changes: { granted: { old: previous.granted, new: change.granted } },
+        details: `${previous?.granted ?? false} -> ${change.granted}`,
+        changes: { granted: { old: previous?.granted ?? false, new: change.granted } },
       });
     }
   }

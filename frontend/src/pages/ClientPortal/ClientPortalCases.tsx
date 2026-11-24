@@ -21,6 +21,7 @@ interface ClientProfile {
 interface CaseSummary {
   id: string;
   matterNumber: string;
+  bundleNumber: string | null;
   caseType: string | null;
   title: string | null;
   status: string;
@@ -44,6 +45,11 @@ interface HearingSummary {
     bundleNumber: string | null;
     title: string | null;
     caseType: string | null;
+    courtCaseNumber: string | null;
+    courtNumber: string | null;
+    courtName: string | null;
+    stage: string | null;
+    status: string;
   };
 }
 interface DocumentSummary {
@@ -192,6 +198,12 @@ export default function ClientPortalDashboard() {
 
                   {/* Case Information - Two Columns */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    {/* Bundle Number */}
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-sm text-gray-500 mb-2">Bundle Number</p>
+                      <p className="font-semibold text-gray-900">{c.bundleNumber || "Not available"}</p>
+                    </div>
 
                     {/* Case Type */}
                     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">

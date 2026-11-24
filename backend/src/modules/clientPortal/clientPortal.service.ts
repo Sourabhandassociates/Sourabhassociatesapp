@@ -2,7 +2,9 @@ import path from "path";
 import { prisma } from "../../config/prisma";
 import { env } from "../../config/env";
 import { AccessTokenPayload } from "../../utils/jwt";
-import { NotFoundError } from "../../utils/errors";
+import { NotFoundError, BadRequestError, ForbiddenError } from "../../utils/errors";
+import { hashPassword, comparePassword } from "../../utils/password";
+import { recordAuditLog } from "../../utils/auditLog";
 import {
   loadActiveClientActor,
   requirePortalFlag,
@@ -17,12 +19,70 @@ import {
  * `clients.service.ts`'s `updatePortalPermissions`.
  */
 
+
+/** Clients may update their own display name and password only. Password changes
+ * require the current password and invalidate all active portal sessions. */
+export async function updateMyProfile(
+  actor: AccessTokenPayload,
+  input: { name?: string; currentPassword?: string; newPassword?: string },
+) {
+  const client = await loadActiveClientActor(actor);
+  const name = input.name?.trim();
+  const newPassword = input.newPassword;
+
+  if (!name && !newPassword) {
+    throw new BadRequestError("Enter a new name or password");
+  }
+  if (name && name.length > 120) {
+    throw new BadRequestError("Name must be 120 characters or fewer");
+  }
+  if (newPassword) {
+    if (newPassword.length < 8) {
+      throw new BadRequestError("New password must be at least 8 characters");
+    }
+    if (!input.currentPassword) {
+      throw new BadRequestError("Enter your current password to change it");
+    }
+    const valid = await comparePassword(input.currentPassword, client.passwordHash);
+    if (!valid) throw new ForbiddenError("Current password is incorrect");
+  }
+
+  const data: { name?: string; passwordHash?: string } = {};
+  if (name && name !== client.name) data.name = name;
+  if (newPassword) data.passwordHash = await hashPassword(newPassword);
+
+  if (Object.keys(data).length === 0) {
+    throw new BadRequestError("No profile changes to save");
+  }
+
+  const updated = await prisma.client.update({
+    where: { id: client.id },
+    data,
+    select: { id: true, clientId: true, name: true },
+  });
+
+  if (newPassword) {
+    await prisma.clientSession.updateMany({
+      where: { clientId: client.id, status: "ACTIVE" },
+      data: { status: "REVOKED" },
+    });
+  }
+
+  await recordAuditLog(actor, "CLIENT_PORTAL_PROFILE_UPDATED", "Client", client.id, {
+    entityName: updated.clientId,
+    details: `${data.name ? "Name updated" : ""}${data.name && newPassword ? "; " : ""}${newPassword ? "Password changed" : ""}`,
+  });
+
+  return { ...updated, passwordChanged: Boolean(newPassword) };
+}
+
 export async function getMyProfile(actor: AccessTokenPayload) {
   const client = await loadActiveClientActor(actor);
   return {
     id: client.id,
     clientId: client.clientId,
     name: client.name,
+    newname: client.newname,
     email: client.email,
     phone: client.phone,
     address: client.address,
@@ -87,6 +147,7 @@ export async function listMyCases(actor: AccessTokenPayload) {
         select: {
           id: true,
           matterNumber: true,
+          bundleNumber: true,
           caseType: true,
           courtCaseNumber: true,
           title: true,
@@ -158,6 +219,7 @@ export async function getMyCase(actor: AccessTokenPayload, caseId: string) {
     select: {
       id: true,
       matterNumber: true,
+      bundleNumber: true,
       title: true,
       practiceArea: true,
       status: true,
@@ -175,9 +237,16 @@ export async function getMyCase(actor: AccessTokenPayload, caseId: string) {
     },
   });
 
-  console.log("COURT CASE NUMBER:", caseData.courtCaseNumber);
+  const nextHearing = await prisma.hearing.findFirst({
+    where: { caseId, status: "SCHEDULED" },
+    orderBy: { hearingDate: "asc" },
+    select: { hearingDate: true },
+  });
 
-  return caseData;
+  return {
+    ...caseData,
+    nextHearingDate: nextHearing?.hearingDate ?? null,
+  };
 }
 
 /** caseId is optional — omitted, this returns hearings across every one of the
@@ -208,7 +277,19 @@ export async function listMyHearings(actor: AccessTokenPayload, caseId?: string)
       purpose: true,
       outcomeNotes: true,
       status: true,
-      case: { select: { matterNumber: true, title: true, caseType: true } },
+      case: {
+        select: {
+          matterNumber: true,
+          bundleNumber: true,
+          title: true,
+          caseType: true,
+          courtCaseNumber: true,
+          courtNumber: true,
+          courtName: true,
+          stage: true,
+          status: true,
+        },
+      },
     },
     orderBy: { hearingDate: "desc" },
   });

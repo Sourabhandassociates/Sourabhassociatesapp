@@ -104,3 +104,16 @@ export async function downloadMyDocument(
     return next(error);
   }
 }
+
+export async function updateMyProfile(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const profile = await clientPortalService.updateMyProfile(req.actor!, req.body);
+    return res.status(200).json(profile);
+  } catch (error) {
+    return next(error);
+  }
+}

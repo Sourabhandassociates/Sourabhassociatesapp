@@ -1,0 +1,22 @@
+Client newname field update
+
+Changes are limited to the Client model and client create/update API:
+- Added nullable Client.newname to prisma/schema.prisma.
+- Added migration prisma/migrations/20261124120000_add_client_newname/migration.sql.
+- Accepted newname in POST /clients and saved it.
+- Returned newname from client creation.
+- Accepted and saved newname in the existing client update endpoint.
+- Existing list/get endpoints return the field automatically through Prisma records.
+
+Deployment:
+1. Back up the current backend and preserve the existing .env.
+2. Extract this ZIP into the backend application directory.
+3. Run npm ci
+4. Run npx prisma migrate deploy
+5. Run npm run build
+6. Restart the Hostinger Node.js application.
+
+No existing client data is deleted. Existing records receive NULL for newname until edited.
+The TypeScript build could not be verified in the packaging environment because Prisma Client
+regeneration required downloading a Prisma engine and network access was unavailable. The
+Hostinger build command regenerates Prisma Client from the updated schema before TypeScript compilation.

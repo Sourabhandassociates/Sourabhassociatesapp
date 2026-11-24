@@ -336,10 +336,14 @@ export async function getCase(actor: AuthorizedActor, caseId: string) {
     return caseRecord;
   }
 
-  return redactSectionsForActor(
-    actor,
-    redactForRole(actor, caseRecord)
-  );
+  const nextHearingDate = caseRecord.hearings
+    .filter((hearing) => hearing.status === "SCHEDULED")
+    .sort((a, b) => a.hearingDate.getTime() - b.hearingDate.getTime())[0]?.hearingDate ?? null;
+
+  return {
+    ...redactSectionsForActor(actor, redactForRole(actor, caseRecord)),
+    nextHearingDate,
+  };
 }
 
 

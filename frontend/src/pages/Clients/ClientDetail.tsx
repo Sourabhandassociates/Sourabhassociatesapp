@@ -21,6 +21,7 @@ interface ClientDetail {
   id: string;
   clientId: string;
   name: string;
+  newname:string;
   type: string | null;
   email: string | null;
   phone: string | null;
@@ -50,6 +51,7 @@ export default function ClientDetail() {
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
+  const [newname,setnewname] = useState("");
   const [type, setType] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -105,6 +107,7 @@ export default function ClientDetail() {
     if (!client) return;
 
     setName(client.name);
+    setnewname(client.newname);
     setType(client.type ?? "");
     setEmail(client.email ?? "");
     setPhone(client.phone ?? "");
@@ -122,6 +125,7 @@ export default function ClientDetail() {
     try {
       await api.patch(`/clients/${client.id}`, {
         name,
+        newname,
         type,
         email,
         phone,

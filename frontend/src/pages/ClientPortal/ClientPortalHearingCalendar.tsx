@@ -9,6 +9,12 @@ export interface ClientHearingCalendarItem {
     matterNumber: string;
     bundleNumber: string | null;
     caseType: string | null;
+    courtCaseNumber?: string | null;
+    title: string | null;
+    courtNumber?: string | null;
+    courtName?: string | null;
+    stage?: string | null;
+    status?: string | null;
   };
 }
 
@@ -18,16 +24,21 @@ interface Props {
 }
 
 function localDateKey(value: string): string | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!value) return null;
 
-  if (!match) {
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return null;
+  // Keep date-only values as-is; they represent a calendar date, not a timestamp.
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
 
-    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+  if (dateOnlyMatch) {
+    return `${dateOnlyMatch[1]}-${dateOnlyMatch[2]}-${dateOnlyMatch[3]}`;
   }
 
-  return `${match[1]}-${match[2]}-${match[3]}`;
+  // For timestamps, use the browser's local timezone so UTC timestamps
+  // are shown on the correct local calendar day (for example, India/IST).
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
 }
 
 function keyForDate(date: Date): string {
@@ -300,7 +311,7 @@ export default function ClientPortalHearingCalendar({
                       lineHeight: 1.4,
                     }}
                   >
-                      
+
                     {hearing.case.caseType ?? "N/A"}
                   </span>
                 ))}
@@ -325,14 +336,14 @@ export default function ClientPortalHearingCalendar({
         <strong style={{ fontSize: 14 }}>
           {selectedDate
             ? dateFromKey(selectedDate).toLocaleDateString(
-                undefined,
-                {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                }
-              )
+              undefined,
+              {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              }
+            )
             : "Select a date"}
         </strong>
 
@@ -342,19 +353,127 @@ export default function ClientPortalHearingCalendar({
           </p>
         )}
 
-        {selectedHearings.length > 0 && (
+        {/* {selectedHearings.length > 0 && (
           <div style={{ marginTop: 7 }}>
             {selectedHearings.map((hearing) => (
               <p
                 key={hearing.id}
                 style={{ margin: "5px 0", fontSize: 13 }}
               >
-                 
+                 {hearing.case.bundleNumber ?? "N/A"}
                 {hearing.case.caseType ?? "N/A"} 
+                {hearing.case.courtCaseNumber ?? "N/A"}
+                {hearing.case.courtNumber ?? "N/A"}
+                {hearing.case.stage ?? "N/A"}
+                {hearing.case.title ?? "N/A"}
+                {hearing.case.status ?? "N/A"}
+                
               </p>
             ))}
           </div>
+        )}  */}
+
+
+        {selectedHearings.length > 0 && (
+          <div
+            style={{
+              marginTop: 7,
+              width: "100%",
+              overflowX: "auto",
+              borderRadius: 12,
+            }}
+          >
+            <table
+              style={{
+                width: "100%",
+                minWidth: 1100,
+                borderCollapse: "separate",
+                borderSpacing: 0,
+                backgroundColor: "#ffffff",
+                borderRadius: 12,
+                overflow: "hidden",
+                fontSize: 13,
+                textAlign: "left",
+              }}
+            >
+              <thead>
+                <tr style={{ backgroundColor: "#f1f3fa" }}>
+                  {[
+                    "BUNDLE NUMBER",
+                    "CASE TYPE",
+                    "COURT CASE NUMBER",
+                    "COURT NUMBER",
+                    "STAGE",
+                    "CASE TITLE",
+                    "STATUS",
+                  ].map((heading) => (
+                    <th
+                      key={heading}
+                      style={{
+                        padding: "14px 16px",
+                        color: "#64748b",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                        borderBottom: "1px solid #e2e8f0",
+                      }}
+                    >
+                      {heading}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+
+              <tbody>
+                {selectedHearings.map((hearing) => (
+                  <tr key={hearing.id}>
+                    <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                      {hearing.case.bundleNumber ?? "N/A"}
+                    </td>
+
+                    <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                      {hearing.case.caseType ?? "N/A"}
+                    </td>
+
+                    <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                      {hearing.case.courtCaseNumber ?? "N/A"}
+                    </td>
+
+                    <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                      {hearing.case.courtNumber ?? "N/A"}
+                    </td>
+
+                    <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                      {hearing.case.stage ?? "N/A"}
+                    </td>
+
+                    <td style={{ padding: "15px 16px", color: "#2563eb", fontWeight: 600, whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                      {hearing.case.title ?? "N/A"}
+                    </td>
+
+                    <td style={{ padding: "15px 16px", borderBottom: "1px solid #e5e7eb", whiteSpace: "nowrap" }}>
+                      <span
+                        style={{
+                          display: "inline-block",
+                          padding: "5px 12px",
+                          borderRadius: 20,
+                          backgroundColor: "#fff1d6",
+                          color: "#a66a00",
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {hearing.case.status ?? "N/A"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
+
+
       </div>
     </section>
   );

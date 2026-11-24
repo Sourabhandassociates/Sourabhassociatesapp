@@ -25,6 +25,7 @@ interface CaseDetailData {
   courtCaseNumber: string | null;
   jurisdiction: string | null;
   department: string | null;
+  nextHearingDate: string | null;
 }
 interface HearingRow {
   id: string;
@@ -35,6 +36,19 @@ interface HearingRow {
   purpose: string | null;
   outcomeNotes: string | null;
   status: string;
+  nextHearingDate: string | null;
+  case: {
+    matterNumber: string;
+    bundleNumber: string | null;
+    title: string | null;
+    caseType: string | null;
+    courtCaseNumber: string | null;
+    courtNumber: string | null;
+    courtName: string | null;
+    stage: string | null;
+    status: string;
+    nextHearingDate: string | null;
+  };
 }
 interface DocumentRow {
   id: string;
@@ -163,28 +177,15 @@ export default function ClientPortalCaseDetail() {
         <div className="card" style={{ marginBottom: 16 }}>
           <h3>Case Overview</h3>
           <p>
-            <strong>Case Register No: </strong>{caseData.matterNumber ?? "_"}
+            <strong>Bundel Number:</strong>{caseData.bundleNumber ?? "_"}
           </p>
+          <p>
+            <strong>Court Case Number:</strong> {caseData.courtCaseNumber ?? "—"}
+          </p>
+
           <p>
             <strong>Case Title:</strong> {caseData.title ?? "—"}
           </p>
-          
-          <p>
-            <strong>Status:</strong> <span className={`badge status-${caseData.status}`}>{caseData.status}</span>
-          </p>
-          <p>
-            <strong>Stage:</strong> {caseData.stage ?? "—"}
-          </p>
-          
-          <p>
-            <strong>Practice Area:</strong> {caseData.practiceArea ?? "—"}
-          </p>
-          <p>
-            <strong>Case Type:</strong> {caseData.caseType ?? "—"}
-          </p>
-          {/* <p>
-            <strong>Filing Date:</strong> {caseData.filingDate ? new Date(caseData.filingDate).toLocaleDateString() : "—"}
-          </p> */}
           <p>
             <strong>Court Name:</strong> {caseData.courtName ?? "—"}
           </p>
@@ -192,12 +193,45 @@ export default function ClientPortalCaseDetail() {
             <strong>Court Number:</strong> {caseData.courtNumber ?? "—"}
           </p>
           <p>
-            <strong>Court Case Number:</strong> {caseData.courtCaseNumber ?? "—"}
+            <strong>Stage:</strong> {caseData.stage ?? "—"}
+          </p>
+          <p>
+            <strong>Practice Area:</strong> {caseData.practiceArea ?? "—"}
+          </p>
+
+          <p>
+            <strong>Case Type:</strong> {caseData.caseType ?? "—"}
           </p>
           <p>
             <strong>Jurisdiction:</strong> {caseData.jurisdiction ?? "—"}
           </p>
+
           <p>
+            <strong>Status:</strong> <span className={`badge status-${caseData.status}`}>{caseData.status}</span>
+          </p>
+
+          {/* <p>
+            <strong>Next Hearing:</strong> <span className={`badge status-${caseData.nextHearingDate}`}>{caseData.nextHearingDate}</span>
+          </p> */}
+
+          <p>
+            <strong>Next Hearing:</strong>{" "}
+            {caseData.nextHearingDate
+              ? new Date(caseData.nextHearingDate).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+              : "Not Scheduled"}
+          </p>
+
+
+
+
+
+
+
+          {/* <p>
             <strong>Department:</strong> {caseData.department ?? "—"}
           </p>
           <p>
@@ -208,22 +242,178 @@ export default function ClientPortalCaseDetail() {
           </p>
           <p>
             <strong>Description:</strong> {caseData.description ?? "—"}
-          </p>
+          </p> */}
 
           <Link to="/client-portal" >Back </Link>
         </div>
 
-        {hearings !== null && (
+        {/* {hearings !== null && (
           <div className="card" style={{ marginBottom: 16 }}>
             <h3>Hearing History</h3>
             {hearings.length === 0 && <p className="muted">No hearings recorded yet.</p>}
             {hearings.map((h) => (
-              <p key={h.id}>
-                {new Date(h.hearingDate).toLocaleDateString()}
-                {h.courtName ? ` — ${h.courtName}` : ""}
-                {h.purpose ? ` (${h.purpose})` : ""} <span className={`badge status-${h.status}`}>{h.status}</span>
-              </p>
+              <div key={h.id} style={{ padding: "12px 0", borderBottom: "1px solid #e5e7eb" }}>
+                <p><strong>Hearing Date:</strong> {new Date(h.hearingDate).toLocaleDateString("en-IN")}</p>
+                <p><strong>Bundle Number:</strong> {h.case.bundleNumber ?? "—"}</p>
+                <p><strong>Case Title:</strong> {h.case.title ?? "—"}</p>
+                <p><strong>Case Type:</strong> {h.case.caseType ?? "—"}</p>
+                <p><strong>Court Case Number:</strong> {h.case.courtCaseNumber ?? "—"}</p>
+                <p><strong>Court Number:</strong> {h.case.courtNumber ?? "—"}</p>
+                <p><strong>Stage:</strong> {h.case.stage ?? "—"}</p>
+                <p><strong>Court:</strong> {h.courtName ?? h.case.courtName ?? "—"}</p>
+                <p><strong>Court Hall:</strong> {h.courtHall ?? "—"}</p>
+                <p><strong>Judge:</strong> {h.judgeName ?? "—"}</p>
+                <p><strong>Purpose:</strong> {h.purpose ?? "—"}</p>
+                <p><strong>Outcome:</strong> {h.outcomeNotes ?? "—"}</p>
+                <p><strong>Status:</strong> <span className={`badge status-${h.status}`}>{h.status}</span></p>
+              </div>
             ))}
+          </div>
+        )} */}
+
+
+        {hearings !== null && (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <h3>Hearing History</h3>
+
+            {hearings.length === 0 && (
+              <p className="muted">No hearings recorded yet.</p>
+            )}
+
+            {hearings.length > 0 && (
+              <div
+                style={{
+                  width: "100%",
+                  overflowX: "auto",
+                  borderRadius: 12,
+                  marginTop: 12,
+                }}
+              >
+                <table
+                  style={{
+                    width: "100%",
+                    minWidth: 1500,
+                    borderCollapse: "separate",
+                    borderSpacing: 0,
+                    backgroundColor: "#ffffff",
+                    borderRadius: 12,
+                    overflow: "hidden",
+                    fontSize: 13,
+                    textAlign: "left",
+                  }}
+                >
+                  <thead>
+                    <tr style={{ backgroundColor: "#f1f3fa" }}>
+                      {[
+
+                        "BUNDLE NUMBER",
+                        "CASE TYPE",
+                        "COURT CASE NUMBER",
+                        "COURT NUMBER",
+
+
+
+
+                        "COURT COMPLEX",
+                        "CASE TITLE",
+
+
+                        "STATUS",
+                      ].map((heading) => (
+                        <th
+                          key={heading}
+                          style={{
+                            padding: "14px 16px",
+                            color: "#64748b",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                            borderBottom: "1px solid #e2e8f0",
+                          }}
+                        >
+                          {heading}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {hearings.map((h) => (
+                      <tr key={h.id}>
+                        {/* <td
+                          style={{
+                            padding: "15px 16px",
+                            color: "#475569",
+                            whiteSpace: "nowrap",
+                            borderBottom: "1px solid #e5e7eb",
+                          }}
+                        >
+                          {new Date(h.hearingDate).toLocaleDateString("en-IN")}
+                        </td> */}
+
+                        <td
+                          style={{
+                            padding: "15px 16px",
+                            color: "#475569",
+                            whiteSpace: "nowrap",
+                            borderBottom: "1px solid #e5e7eb",
+                          }}
+                        >
+                          {h.case.bundleNumber ?? "—"}
+                        </td>
+
+
+                        <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                          {h.case.caseType ?? "—"}
+                        </td>
+
+                        <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                          {h.case.courtCaseNumber ?? "—"}
+                        </td>
+
+
+                        <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                          {h.case.courtNumber ?? "—"}
+                        </td>
+
+
+
+
+                        <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                          {h.courtName ?? h.case.courtName ?? "—"}
+                        </td>
+
+                        <td
+                          style={{
+                            padding: "15px 16px",
+                            color: "#2563eb",
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                            borderBottom: "1px solid #e5e7eb",
+                          }}
+                        >
+                          {h.case.title ?? "—"}
+                        </td>
+
+
+
+                        <td
+                          style={{
+                            padding: "15px 16px",
+                            whiteSpace: "nowrap",
+                            borderBottom: "1px solid #e5e7eb",
+                          }}
+                        >
+                          <span className={`badge status-${h.status}`}>
+                            {h.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

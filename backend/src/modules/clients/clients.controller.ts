@@ -15,6 +15,7 @@ const optionalEmail = z.union([z.string().email(), z.literal("")]).optional();
 
 const createClientSchema = z.object({
   name: z.string().min(1),
+  newname: z.string().optional(),
   type: z.string().optional(),
   email: optionalEmail,
   phone: z.string().optional(),
@@ -49,6 +50,7 @@ export async function getClient(req: Request, res: Response) {
 
 const updateClientSchema = z.object({
   name: z.string().min(1).optional(),
+  newname: z.string().optional(),
   type: z.string().optional(),
   email: optionalEmail,
   phone: z.string().optional(),

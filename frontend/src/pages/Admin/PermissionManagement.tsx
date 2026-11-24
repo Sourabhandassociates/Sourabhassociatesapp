@@ -304,6 +304,7 @@ function RoleDefaultsTab() {
                             disabled={locked || savingKey !== null}
                             onChange={() => toggle(role, row)}
                             className={locked ? "locked-cell" : undefined}
+                            style={{ accentColor: "#2563eb", width: 16, height: 16, cursor: locked ? "not-allowed" : "pointer" }}
                             title={
                               locked
                                 ? "Required for Managing Partner Safety — cannot be removed"
@@ -666,6 +667,46 @@ function CaseSectionAccessCard({
   );
 }
 
+/** Cause List access is independent from the Hearing Calendar. This uses the
+ * same employee override API as the other section-level controls. */
+function CauseListAccessCard({
+  summary,
+  onToggle,
+}: {
+  summary: EmployeeSummary;
+  onToggle: (entry: EffectiveEntry) => void;
+}) {
+  const entry = summary.effective.find((item) => item.permission.key === "CAUSE_LIST.VIEW");
+  if (!entry) {
+    return (
+      <div className="card">
+        <h3>Cause List Access</h3>
+        <p className="muted">Cause List permission is not registered. Ask an administrator to run the backend permission seed.</p>
+      </div>
+    );
+  }
+  const locked = summary.user.role === "MANAGING_PARTNER" && entry.permission.isCoreAdmin;
+  return (
+    <div className="card">
+      <h3>Cause List Access</h3>
+      <p className="muted" style={{ marginTop: -4, marginBottom: 12 }}>
+        Allow {summary.user.name} to view the Cause List. This permission is separate from Hearing Calendar access.
+      </p>
+      <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: locked ? "default" : "pointer" }}>
+        <input
+          type="checkbox"
+          checked={entry.granted}
+          disabled={locked}
+          onChange={() => onToggle(entry)}
+          style={{ accentColor: "#2563eb", width: 16, height: 16 }}
+        />
+        <span>View Cause List</span>
+        {entry.override && <span className={`badge override-${entry.override.effect.toLowerCase()}`}>Individual override</span>}
+      </label>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------------ */
 /* Employee Overrides                                                       */
 /* ------------------------------------------------------------------------ */
@@ -777,6 +818,7 @@ function EmployeeOverridesTab() {
         <>
           <EmployeeHeader user={summary.user} />
           <CaseSectionAccessCard summary={summary} onToggle={handleSectionToggle} />
+          <CauseListAccessCard summary={summary} onToggle={handleSectionToggle} />
           <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span className="muted">
               {overrideCount} individual override{overrideCount === 1 ? "" : "s"}
@@ -786,7 +828,7 @@ function EmployeeOverridesTab() {
             </button>
           </div>
           <EffectivePermissionsTable
-            entries={summary.effective.filter((e) => !CASE_SECTION_KEYS.has(e.permission.key))}
+            entries={summary.effective.filter((e) => !CASE_SECTION_KEYS.has(e.permission.key) && e.permission.key !== "CAUSE_LIST.VIEW")}
             employeeRole={summary.user.role}
             showActions
             onGrant={(entry) => setDialog({ entry, effect: "GRANT" })}

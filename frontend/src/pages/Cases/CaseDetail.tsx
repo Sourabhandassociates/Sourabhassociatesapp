@@ -24,6 +24,7 @@ interface CaseDetailData {
   caseTitle: string | null;
   practiceArea: string | null;
   status: string;
+  nextHearingDate?: string | null;
   courtName: string | null;
   courtNumber: string | null;
   jurisdiction: string | null;
@@ -406,7 +407,7 @@ function Overview({
       <div className="card">
         <h3>Case Identification</h3>
         <div style={overviewGridStyle}>
-          <Field label="Case Number" value={data.matterNumber} />
+          {/* <Field label="Case Number" value={data.matterNumber} /> */}
           <Field label="Bundle Number" value={data.bundleNumber} />
           <Field label="Court Case Number" value={data.courtCaseNumber} />
           <Field label="Cause Title" value={data.title} />
@@ -415,7 +416,14 @@ function Overview({
           <Field label="Case Stage" value={data.stage} />
           <Field label="Practice Area" value={data.practiceArea} />
           <Field label="Case Type" value={data.caseType} />
+          
           <Field label="Jurisdiction" value={data.jurisdiction} />
+          <Field
+            label="Next Hearing"
+            value={data.nextHearingDate
+              ? new Date(data.nextHearingDate).toLocaleDateString("en-IN")
+              : null}
+          />
         </div>
       </div>
 

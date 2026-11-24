@@ -49,8 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(state);
   }
 
-  async function loginClient(clientId: string, password: string) {
-    const res = await api.post("/auth/login/client", { clientId, password });
+  async function loginClient(identifier: string, password: string) {
+    const res = await api.post("/auth/login/client", { identifier, password });
     const state: AuthState = {
       accessToken: res.data.accessToken,
       sessionId: decodeSessionId(res.data.accessToken),

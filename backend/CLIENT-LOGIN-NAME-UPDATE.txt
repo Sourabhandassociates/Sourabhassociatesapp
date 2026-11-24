@@ -1,0 +1,22 @@
+Client login update
+====================
+
+Client Portal login now accepts either:
+1. Client ID + password
+2. Registered client name + password
+
+The API accepts `identifier` and continues to accept the legacy `clientId` field
+for older clients. Name matching is case-insensitive. If multiple active clients
+share the same registered name, name login succeeds only when the password
+matches exactly one account.
+
+No database migration is required.
+
+Hostinger backend deployment:
+- Back up the existing backend folder and keep the existing .env file.
+- Upload/extract this backend package into the backend project directory.
+- Run `npm ci` if dependencies need reinstalling.
+- Run `npm run build` (or use the included updated dist after installing dependencies).
+- Restart the Hostinger Node.js application.
+
+Do not overwrite or upload your .env file from another environment.

@@ -12,6 +12,7 @@ import { AccessTokenPayload } from "../../utils/jwt";
 
 export interface CreateClientInput extends ConflictAcknowledgement {
   name: string;
+  newname?: string;
   /** Step 4 — free text, validated by UI curation via the CLIENT_TYPE picklist
    * category rather than a DB enum (matches Case.stage/caseType's convention).
    * Optional as of the Client-module optional-fields pass (2026-08-06) — see
@@ -58,6 +59,7 @@ export async function createClient(actor: AccessTokenPayload, input: CreateClien
   const client = await prisma.client.create({
     data: {
       name,
+      newname: normalizeOptional(input.newname),
       type: normalizeOptional(input.type),
       email: normalizeOptional(input.email),
       phone: normalizeOptional(input.phone),
@@ -91,6 +93,7 @@ export async function createClient(actor: AccessTokenPayload, input: CreateClien
       id: client.id,
       clientId: client.clientId,
       name: client.name,
+      newname: client.newname,
       type: client.type,
       email: client.email,
       phone: client.phone,
@@ -273,6 +276,7 @@ export async function getClient(actor: AccessTokenPayload, clientId: string) {
 
 export interface UpdateClientInput {
   name?: string;
+  newname?: string;
   type?: string;
   email?: string;
   phone?: string;
@@ -295,6 +299,7 @@ export async function updateClient(
 
   const data: {
     name?: string;
+    newname?: string | null;
     type?: string | null;
     email?: string | null;
     phone?: string | null;
@@ -302,6 +307,7 @@ export async function updateClient(
   } = {};
 
   if (input.name !== undefined) data.name = input.name.trim();
+  if (input.newname !== undefined) data.newname = normalizeOptional(input.newname);
   if (input.type !== undefined) data.type = normalizeOptional(input.type);
   if (input.email !== undefined) data.email = normalizeOptional(input.email);
   if (input.phone !== undefined) data.phone = normalizeOptional(input.phone);
@@ -314,6 +320,7 @@ export async function updateClient(
 
   const changes = diffObjects(before, client, [
     "name",
+    "newname",
     "type",
     "email",
     "phone",

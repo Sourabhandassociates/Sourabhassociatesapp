@@ -41,6 +41,7 @@ function ButtonLoader() {
 /** Client-module optional-fields pass — only Client Name is mandatory. */
 export default function NewClient() {
   const [name, setName] = useState("");
+  const [newname,setnewname] = useState("");
   const [clientUsername, setClientUsername] = useState("");
   const [password, setPassword] = useState("");
   const [type, setType] = useState("");
@@ -73,6 +74,7 @@ export default function NewClient() {
   ) {
     const res = await api.post("/clients", {
       name,
+      newname,
       clientId: clientUsername.trim() || undefined,
       password: password || undefined,
       type: type || undefined,
@@ -201,7 +203,7 @@ export default function NewClient() {
         onSubmit={handleSubmit}
       >
         <label htmlFor="name">
-          Full Name / Company Name
+          User Name
         </label>
 
         <input
@@ -211,6 +213,8 @@ export default function NewClient() {
           required
           disabled={submitting || conflictSubmitting}
         />
+        <label htmlFor="subname">Client Name</label>
+        <input id="subname" value={newname} onChange={(e) => setnewname(e.target.value)} required disabled={submitting || conflictSubmitting} />
 
         <label htmlFor="clientUsername">Client Portal Username (optional)</label>
         <input
