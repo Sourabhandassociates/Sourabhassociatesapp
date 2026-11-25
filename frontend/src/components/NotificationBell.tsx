@@ -34,8 +34,16 @@ export function NotificationBell() {
       const latest = Array.isArray(res.data) ? res.data : [];
 
       if (seenNotificationIds.current === null) {
-        seenNotificationIds.current = new Set(latest.map((item) => item.id));
-        return;
+        // On first successful fetch (including after being offline), leave unread
+        // announcement notifications unseen so they are displayed as toasts below.
+        seenNotificationIds.current = new Set(
+          latest
+            .filter(
+              (item) =>
+                !(item.entityType === "Announcement" && Boolean(item.entityId) && !item.isRead)
+            )
+            .map((item) => item.id)
+        );
       }
 
       const seen = seenNotificationIds.current;
@@ -138,7 +146,18 @@ export function NotificationBell() {
       pollAnnouncementNotifications();
     }, 10000);
 
-    return () => clearInterval(interval);
+    // When the staff member reconnects, check immediately instead of waiting
+    // for the next polling interval.
+    const onOnline = () => {
+      refreshCount();
+      pollAnnouncementNotifications();
+    };
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("online", onOnline);
+    };
   }, []);
 
   useEffect(() => {
