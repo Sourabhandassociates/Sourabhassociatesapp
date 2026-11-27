@@ -56,13 +56,27 @@ export async function assertCaseAccess(actor: AccessTokenPayload, caseId: string
     hasViewAll: (actor as AuthorizedActor).effectivePermissions?.has("CASES.VIEW_ALL"),
   });
 
-  const caseRecord = await prisma.case.findFirst({
+  let caseRecord = await prisma.case.findFirst({
     where: {
       id: caseId,
       deletedAt: null,
       ...caseScopeWhere(actor as AuthorizedActor),
     },
   });
+
+  // A hearing assignment is a direct work assignment and grants an Associate
+  // access to the assigned case context, even when they are not listed as a
+  // Partner/Advocate on the case. This is needed for assigned hearings opened
+  // from Calendar/Cause List and their case-detail link.
+  if (!caseRecord && actor.role === "ASSOCIATE") {
+    const assignedHearing = await prisma.hearing.findFirst({
+      where: { caseId, assignedAssociateId: actor.sub },
+      select: { id: true },
+    });
+    if (assignedHearing) {
+      caseRecord = await prisma.case.findFirst({ where: { id: caseId, deletedAt: null } });
+    }
+  }
 
   console.log("CASE FOUND:", !!caseRecord);
 

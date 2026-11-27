@@ -152,7 +152,7 @@ export default function Login() {
             className={mode === "staff" ? "active" : ""}
             onClick={() => setMode("staff")}
           >
-            Staff Login
+            Associates Login
           </button>
 
           <button
@@ -181,11 +181,11 @@ export default function Login() {
             </>
           ) : (
             <>
-              <label htmlFor="clientIdentifier">Client ID or Client Name</label>
+              <label htmlFor="clientIdentifier">Client ID or User Name</label>
 
               <input
                 id="clientIdentifier"
-                placeholder="Enter Client ID or registered name"
+                placeholder="Enter Client ID or User Name"
                 value={clientIdentifier}
                 onChange={(e) => setClientIdentifier(e.target.value)}
                 required

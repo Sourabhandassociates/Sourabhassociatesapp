@@ -155,11 +155,16 @@ export async function listCauseList(actor: AccessTokenPayload, filters: CauseLis
     throw new BadRequestError("employeeId is required when scope is EMPLOYEE");
   }
 
-  const caseConditions: Prisma.CaseWhereInput[] = [caseScopeWhere(actor as AuthorizedActor), { deletedAt: null }];
+  // Associates receive case visibility for a hearing explicitly assigned to them.
+  // Do not additionally require the case to list them as Partner/Advocate; that
+  // was the reason assigned hearings were missing from their Cause List.
+  const caseConditions: Prisma.CaseWhereInput[] = actor.role === "ASSOCIATE"
+    ? [{ deletedAt: null }]
+    : [caseScopeWhere(actor as AuthorizedActor), { deletedAt: null }];
 
-  if (effectiveScope === "MINE") {
+  if (actor.role !== "ASSOCIATE" && effectiveScope === "MINE") {
     caseConditions.push({ OR: [{ partnerId: actor.sub }, { advocates: { some: { userId: actor.sub } } }] });
-  } else if (effectiveScope === "EMPLOYEE" && filters.employeeId) {
+  } else if (actor.role !== "ASSOCIATE" && effectiveScope === "EMPLOYEE" && filters.employeeId) {
     caseConditions.push({
       OR: [{ partnerId: filters.employeeId }, { advocates: { some: { userId: filters.employeeId } } }],
     });

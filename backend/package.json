@@ -1,4 +1,3 @@
-
 {
   "name": "saa-backend",
   "version": "1.0.0",
@@ -16,7 +15,7 @@
     "test:migrate": "dotenv -e .env.test -- prisma migrate deploy",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "build": "prisma generate && tsc"
+    "build": "prisma generate && tsc -p tsconfig.json"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",

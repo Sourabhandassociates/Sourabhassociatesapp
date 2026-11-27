@@ -105,7 +105,24 @@ export function NotificationBell() {
                 type="button"
                 aria-label="Close announcement notification"
                 title="Close"
-                onClick={() => toast.dismiss(t.id)}
+                onClick={async () => {
+                  // Dismissing the announcement toast must persist as read, not just
+                  // hide it for this browser session. Mark both notification and
+                  // announcement read state so it stays dismissed after refresh/login.
+                  try {
+                    await api.patch(`/notifications/${item.id}/read`);
+                  } catch (err) {
+                    console.error("Failed to mark announcement notification as read:", err);
+                  }
+                  try {
+                    await api.patch(`/announcements/${item.entityId}/read`);
+                  } catch (err) {
+                    console.error("Failed to mark announcement as read:", err);
+                  }
+                  seenNotificationIds.current?.add(item.id);
+                  refreshCount();
+                  toast.dismiss(t.id);
+                }}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",

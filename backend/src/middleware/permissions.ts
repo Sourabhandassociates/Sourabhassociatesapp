@@ -56,3 +56,30 @@ export function requirePermission(key: string) {
     next();
   };
 }
+
+
+/**
+ * Allows a route when the authenticated staff member has at least one of the
+ * listed permissions. Used for the task-assignee picker: task assigners need
+ * a minimal staff directory (name/id/role), without granting broad directory
+ * access elsewhere.
+ */
+export function requireAnyPermission(...keys: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.actor) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+    const granted = req.actor.effectivePermissions;
+    if (!keys.some((key) => granted?.has(key))) {
+      logSecurityEvent("PERMISSION_DENIED", {
+        message: `Actor does not hold any required permission: ${keys.join(", ")}`,
+        actorId: req.actor.sub,
+        actorRole: req.actor.role,
+        permissionKeys: keys,
+        ...requestContext(req),
+      });
+      return res.status(403).json({ error: "You do not have permission to perform this action" });
+    }
+    next();
+  };
+}

@@ -1,0 +1,11 @@
+Associate / Junior Associate access fix
+
+This migration grants the following permissions to ASSOCIATE and JUNIOR_ASSOCIATE:
+- CAUSE_LIST.VIEW
+- TASKS.CREATE
+- TASKS.ASSIGN
+- CASE_TASKS.VIEW
+
+Cause List frontend now defaults to Next 7 Days instead of Today, so the page is less likely to appear empty. Cause List data remains scoped to the logged-in advocate's assigned cases (partnerId or advocate assignment).
+
+Run `npx prisma migrate deploy` after deploying the backend.

@@ -10,6 +10,7 @@ const scheduleHearingSchema = z.object({
   courtHall: z.string().optional(),
   judgeName: z.string().optional(),
   purpose: z.string().optional(),
+  assignedAssociateId: z.string().nullable().optional(),
 });
 
 export async function scheduleHearing(req: Request, res: Response) {
@@ -32,6 +33,7 @@ const rescheduleHearingSchema = z.object({
   courtHall: z.string().optional(),
   judgeName: z.string().optional(),
   purpose: z.string().optional(),
+  assignedAssociateId: z.string().nullable().optional(),
 });
 
 export async function rescheduleHearing(req: Request, res: Response) {

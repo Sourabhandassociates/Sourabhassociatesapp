@@ -2,7 +2,7 @@ import { prisma } from "../../config/prisma";
 import { assertCaseAccess, assertHearingAccess, caseScopeWhere } from "../../utils/authorization";
 import { recordAuditLog, diffObjects } from "../../utils/auditLog";
 import { notifyCaseTeam } from "../../utils/notify";
-import { ConflictError } from "../../utils/errors";
+import { ConflictError, BadRequestError } from "../../utils/errors";
 import { AccessTokenPayload } from "../../utils/jwt";
 
 export interface ScheduleHearingInput {
@@ -11,6 +11,7 @@ export interface ScheduleHearingInput {
   courtHall?: string;
   judgeName?: string;
   purpose?: string;
+  assignedAssociateId?: string | null;
 }
 
 /**
@@ -20,7 +21,17 @@ export interface ScheduleHearingInput {
  * below) — that keeps "next hearing" unambiguous without ever creating a second
  * upcoming row for the same case.
  */
+async function validateAssignedAssociate(assignedAssociateId?: string | null) {
+  if (!assignedAssociateId) return null;
+  const user = await prisma.user.findUnique({ where: { id: assignedAssociateId }, select: { id: true, role: true, status: true } });
+  if (!user || user.status !== "ACTIVE" || user.role !== "ASSOCIATE") {
+    throw new BadRequestError("Select an active Associate for hearing assignment.");
+  }
+  return user.id;
+}
+
 export async function scheduleHearing(actor: AccessTokenPayload, caseId: string, data: ScheduleHearingInput) {
+  const assignedAssociateId = await validateAssignedAssociate(data.assignedAssociateId);
   const caseRecord = await assertCaseAccess(actor, caseId);
 
   const existingScheduled = await prisma.hearing.findFirst({ where: { caseId, status: "SCHEDULED" } });
@@ -38,6 +49,7 @@ export async function scheduleHearing(actor: AccessTokenPayload, caseId: string,
       courtHall: data.courtHall,
       judgeName: data.judgeName,
       purpose: data.purpose,
+      assignedAssociateId,
       createdById: actor.sub,
     },
   });
@@ -74,6 +86,7 @@ export interface RescheduleHearingInput {
   courtHall?: string;
   judgeName?: string;
   purpose?: string;
+  assignedAssociateId?: string | null;
 }
 
 /**
@@ -87,6 +100,7 @@ export async function rescheduleHearing(
   hearingId: string,
   data: RescheduleHearingInput
 ) {
+  const assignedAssociateId = await validateAssignedAssociate(data.assignedAssociateId);
   const hearing = await assertHearingAccess(actor, hearingId);
   if (hearing.status !== "SCHEDULED") {
     throw new ConflictError("Only an upcoming (SCHEDULED) hearing can be rescheduled");
@@ -100,6 +114,7 @@ export async function rescheduleHearing(
       courtHall: data.courtHall,
       judgeName: data.judgeName,
       purpose: data.purpose,
+      assignedAssociateId,
     },
   });
 
@@ -109,6 +124,7 @@ export async function rescheduleHearing(
     "courtHall",
     "judgeName",
     "purpose",
+    "assignedAssociateId",
   ]);
   await recordAuditLog(actor, "HEARING_RESCHEDULED", "Hearing", hearingId, changes ? { changes } : undefined);
 
@@ -154,6 +170,7 @@ export async function recordHearingOutcome(
             courtName: updatedHearing.courtName,
             courtHall: updatedHearing.courtHall,
             judgeName: updatedHearing.judgeName,
+            assignedAssociateId: updatedHearing.assignedAssociateId,
             createdById: actor.sub,
           },
         })
@@ -197,7 +214,7 @@ export async function listHearingsInRange(
         lte: end,
       },
       case: {
-        ...caseScopeWhere(actor),
+        ...(actor.role === "ASSOCIATE" ? {} : caseScopeWhere(actor)),
         deletedAt: null,
       },
     },

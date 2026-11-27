@@ -447,21 +447,37 @@ export default function HearingCalendar() {
                           )}
                         </td> */}
 
-                        
-
-                        <td>
-                          {displayValue(caseRecord?.courtCaseNumber)}
+                          <td>
+                          {caseRecord?.id ? (
+                            <Link
+                              to={`/cases/${caseRecord.id}`}
+                              style={{
+                                color: "var(--color-primary)",
+                                textDecoration: "underline",
+                                cursor: "pointer",
+                                fontWeight: 500,
+                              }}
+                            >
+                              {displayValue(caseRecord.courtCaseNumber)}
+                            </Link>
+                          ) : (
+                            displayValue(caseRecord?.courtCaseNumber)
+                          )}
                         </td>
-                           <td>{displayValue(caseRecord?.courtNumber)}</td>
 
-                       
 
-                     
+                        <td>{displayValue(caseRecord?.courtNumber)}</td>
+
+                      
+
+
+
+
 
                         <td>
                           {displayValue(caseRecord?.courtName, hearing.courtName)}
                         </td>
-                         <td>{displayValue(caseRecord?.title)}</td>
+                        <td>{displayValue(caseRecord?.title)}</td>
 
                         <td>
                           <span className="badge">{hearing.status}</span>

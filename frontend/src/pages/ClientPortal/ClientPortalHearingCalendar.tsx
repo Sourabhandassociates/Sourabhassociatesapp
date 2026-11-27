@@ -435,9 +435,10 @@ export default function ClientPortalHearingCalendar({
                       {hearing.case.caseType ?? "N/A"}
                     </td>
 
-                    <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                     <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
                       {hearing.case.courtCaseNumber ?? "N/A"}
-                    </td>
+                    </td> 
+                    
 
                     <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
                       {hearing.case.courtNumber ?? "N/A"}
@@ -447,7 +448,7 @@ export default function ClientPortalHearingCalendar({
                       {hearing.case.stage ?? "N/A"}
                     </td>
 
-                    <td style={{ padding: "15px 16px", color: "#2563eb", fontWeight: 600, whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                    <td style={{ padding: "15px 16px", color: "#475569", fontWeight: 600, whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
                       {hearing.case.title ?? "N/A"}
                     </td>
 

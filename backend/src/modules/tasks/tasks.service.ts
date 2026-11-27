@@ -39,8 +39,15 @@ export interface CreateTaskInput {
   assignedToId: string;
 }
 
-export async function createTask(actor: AccessTokenPayload, caseId: string, data: CreateTaskInput) {
+export async function createTask(actor: AuthorizedActor, caseId: string, data: CreateTaskInput) {
   await assertCaseAccess(actor, caseId);
+
+  // Associates and other staff may create tasks for another staff member only
+  // when TASKS.ASSIGN is granted. Self-assignment remains available to users
+  // who can create tasks, even if they do not have reassignment permission.
+  if (data.assignedToId !== actor.sub && !actor.effectivePermissions?.has("TASKS.ASSIGN")) {
+    throw new ForbiddenError("You do not have permission to assign tasks to other staff members");
+  }
 
   const assignee = await prisma.user.findUnique({ where: { id: data.assignedToId } });
   if (!assignee || assignee.status !== "ACTIVE") {

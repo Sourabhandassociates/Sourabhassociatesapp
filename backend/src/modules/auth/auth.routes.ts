@@ -5,6 +5,7 @@ import { requireStaff } from "../../middleware/rbac";
 import {
   attachEffectivePermissions,
   requirePermission,
+  requireAnyPermission,
 } from "../../middleware/permissions";
 import { authRateLimit } from "../../middleware/rateLimit";
 import * as authController from "./auth.controller";
@@ -104,7 +105,7 @@ authRouter.get(
   requireAuth,
   requireStaff,
   attachEffectivePermissions,
-  requirePermission("USERS.VIEW_DIRECTORY"),
+  requireAnyPermission("USERS.VIEW_DIRECTORY", "TASKS.ASSIGN"),
   authController.staffDirectory
 );
 

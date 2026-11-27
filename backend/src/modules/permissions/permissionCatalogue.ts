@@ -239,7 +239,7 @@ const tasks: PermissionDefinition[] = [
     module: "TASKS",
     action: "CREATE",
     label: "Create Task",
-    defaults: { MANAGING_PARTNER: true, ASSOCIATE: true, JUNIOR_ASSOCIATE: false, OFFICE_STAFF: false, ACCOUNTS_TEAM: false },
+    defaults: { MANAGING_PARTNER: true, ASSOCIATE: true, JUNIOR_ASSOCIATE: true, OFFICE_STAFF: false, ACCOUNTS_TEAM: false },
   },
   {
     key: "TASKS.EDIT",
@@ -336,7 +336,7 @@ const causeList: PermissionDefinition[] = [
     module: "CAUSE_LIST",
     action: "VIEW",
     label: "View Cause List",
-    defaults: { MANAGING_PARTNER: true, ASSOCIATE: true, JUNIOR_ASSOCIATE: true, OFFICE_STAFF: true, ACCOUNTS_TEAM: false },
+    defaults: { MANAGING_PARTNER: true, ASSOCIATE: true, JUNIOR_ASSOCIATE: false, OFFICE_STAFF: true, ACCOUNTS_TEAM: false },
   },
 ];
 

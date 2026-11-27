@@ -71,6 +71,7 @@ interface CaseDetailData {
     courtHall: string | null;
     judgeName: string | null;
     purpose: string | null;
+    assignedAssociateId?: string | null;
     outcomeNotes: string | null;
     status: string;
   }[];
@@ -165,7 +166,43 @@ export default function CaseDetail() {
 
   useEffect(() => {
     reload();
-    api.get("/auth/staff-directory").then((res) => setStaff(res.data));
+    api.get("/auth/staff-directory")
+      .then((res) => {
+        // The staff-directory endpoint may return the list directly or wrapped
+        // in a common API response object. Normalize only this dropdown data.
+        const payload = res.data;
+        const list = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.staff)
+            ? payload.staff
+            : Array.isArray(payload?.users)
+              ? payload.users
+              : Array.isArray(payload?.data)
+                ? payload.data
+                : Array.isArray(payload?.data?.staff)
+                  ? payload.data.staff
+                  : Array.isArray(payload?.data?.users)
+                    ? payload.data.users
+                    : [];
+
+        const normalized = list
+          .filter((member: any) => member && member.id)
+          .map((member: any) => ({
+            id: String(member.id),
+            name:
+              member.name ||
+              member.fullName ||
+              [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+              member.email ||
+              "Unnamed staff member",
+            role: member.role || member.designation || member.staffRole || "STAFF",
+          }));
+        setStaff(normalized);
+      })
+      .catch((error) => {
+        console.error("Failed to load staff directory:", error);
+        setStaff([]);
+      });
   }, [reload]);
 
   if (!data) return <AppLoader />;
@@ -304,7 +341,13 @@ export default function CaseDetail() {
         />
       )}
       {tab === "hearings" && sectionPermissions.hearings && (
-        <Hearings caseId={data.id} bundleNumber={data.bundleNumber} hearings={data.hearings} onChanged={reload} />
+        <Hearings
+          caseId={data.id}
+          bundleNumber={data.bundleNumber}
+          hearings={data.hearings}
+          staff={staff}
+          onChanged={reload}
+        />
       )}
       {tab === "timeline" && sectionPermissions.timeline && <HearingTimeline hearings={data.hearings} bundleNumber={data.bundleNumber} />}
       {tab === "notes" && sectionPermissions.notes && <Notes caseId={data.id} notes={data.notes} onChanged={reload} />}
@@ -1503,6 +1546,12 @@ function Tasks({
   const canDelete =
     !!auth && CASE_EDITOR_ROLES.includes(auth.role);
 
+  // Associates may assign case tasks only to Junior Associates and Staff.
+  // Other roles retain the existing full staff-directory options.
+  const assignableStaff = auth?.role === "ASSOCIATE"
+    ? staff.filter((member) => ["JUNIOR_ASSOCIATE", "OFFICE_STAFF", "STAFF"].includes(member.role.toUpperCase()))
+    : staff;
+
   const [title, setTitle] = useState("");
   const [assignedToId, setAssignedToId] = useState("");
   const [priority, setPriority] = useState("MEDIUM");
@@ -1698,7 +1747,7 @@ function Tasks({
 
             <div>
               <label htmlFor="assignee">
-                Assign To
+                Assign To (Associate / Staff)
               </label>
 
               <select
@@ -1710,10 +1759,10 @@ function Tasks({
                 required
               >
                 <option value="">
-                  Select…
+                  Select staff member…
                 </option>
 
-                {staff.map((s) => (
+                {assignableStaff.map((s) => (
                   <option
                     key={s.id}
                     value={s.id}
@@ -1934,11 +1983,13 @@ function Hearings({
   caseId,
   bundleNumber,
   hearings,
+  staff,
   onChanged,
 }: {
   caseId: string;
   bundleNumber: string | null;
   hearings: CaseDetailData["hearings"];
+  staff: StaffMember[];
   onChanged: () => void;
 }) {
   const { auth } = useAuth();
@@ -1952,6 +2003,7 @@ function Hearings({
   const [courtHall, setCourtHall] = useState("");
   const [judgeName, setJudgeName] = useState("");
   const [purpose, setPurpose] = useState("");
+  const [assignedAssociateId, setAssignedAssociateId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -1967,12 +2019,14 @@ function Hearings({
       setCourtHall(upcoming.courtHall ?? "");
       setJudgeName(upcoming.judgeName ?? "");
       setPurpose(upcoming.purpose ?? "");
+      setAssignedAssociateId(upcoming.assignedAssociateId ?? "");
     } else {
       setHearingDate("");
       setCourtName("");
       setCourtHall("");
       setJudgeName("");
       setPurpose("");
+      setAssignedAssociateId("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [upcoming?.id]);
@@ -1992,6 +2046,7 @@ function Hearings({
         courtHall: courtHall || undefined,
         judgeName: judgeName || undefined,
         purpose: purpose || undefined,
+        assignedAssociateId: assignedAssociateId || null,
       };
 
       if (upcoming) {
@@ -2108,6 +2163,15 @@ function Hearings({
                   value={purpose}
                   onChange={setPurpose}
                 />
+              </div>
+              <div>
+                <label htmlFor="hearingAssociate">Assign Associate</label>
+                <select id="hearingAssociate" value={assignedAssociateId} onChange={(e) => setAssignedAssociateId(e.target.value)}>
+                  <option value="">Unassigned</option>
+                  {staff.filter((member) => member.role === "ASSOCIATE").map((member) => (
+                    <option key={member.id} value={member.id}>{member.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
 

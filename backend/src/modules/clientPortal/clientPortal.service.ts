@@ -262,7 +262,7 @@ export async function listMyHearings(actor: AccessTokenPayload, caseId?: string)
     await assertClientOwnsCase(actor, caseId);
   }
 
-  return prisma.hearing.findMany({
+  const hearings = await prisma.hearing.findMany({
     where: {
       case: { deletedAt: null, clients: { some: { clientId: client.id } } },
       ...(caseId ? { caseId } : {}),
@@ -293,6 +293,31 @@ export async function listMyHearings(actor: AccessTokenPayload, caseId?: string)
     },
     orderBy: { hearingDate: "desc" },
   });
+
+  // Next hearing is the next scheduled hearing for the same case, not a
+  // denormalized column on Hearing (the schema stores each hearing as a row).
+  const caseIds = [...new Set(hearings.map((hearing) => hearing.caseId))];
+  const scheduledHearings = caseIds.length
+    ? await prisma.hearing.findMany({
+        where: { caseId: { in: caseIds }, status: "SCHEDULED" },
+        select: { caseId: true, hearingDate: true },
+        orderBy: { hearingDate: "asc" },
+      })
+    : [];
+  const scheduledByCase = new Map<string, Date[]>();
+  for (const hearing of scheduledHearings) {
+    const dates = scheduledByCase.get(hearing.caseId) ?? [];
+    dates.push(hearing.hearingDate);
+    scheduledByCase.set(hearing.caseId, dates);
+  }
+
+  return hearings.map((hearing) => ({
+    ...hearing,
+    nextHearingDate:
+      scheduledByCase.get(hearing.caseId)?.find(
+        (date) => date.getTime() > hearing.hearingDate.getTime(),
+      ) ?? null,
+  }));
 }
 
 /** Same optional-caseId shape as listMyHearings. The `confidentiality:

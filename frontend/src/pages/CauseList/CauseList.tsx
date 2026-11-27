@@ -46,7 +46,7 @@ const RANGE_LABELS: Record<RangePreset, string> = {
  */
 export default function CauseList() {
   const { permission, loading: permissionLoading } = useCauseListPermission();
-  const [rangePreset, setRangePreset] = useState<RangePreset>("TODAY");
+  const [rangePreset, setRangePreset] = useState<RangePreset>("NEXT_7_DAYS");
   const [groupBy, setGroupBy] = useState<GroupBy>("NONE");
 
   const [rows, setRows] = useState<CauseListRow[]>([]);

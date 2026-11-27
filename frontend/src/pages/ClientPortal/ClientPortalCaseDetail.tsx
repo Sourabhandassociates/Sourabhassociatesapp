@@ -275,141 +275,40 @@ export default function ClientPortalCaseDetail() {
         {hearings !== null && (
           <div className="card" style={{ marginBottom: 16 }}>
             <h3>Hearing History</h3>
-
-            {hearings.length === 0 && (
-              <p className="muted">No hearings recorded yet.</p>
-            )}
-
+            {hearings.length === 0 && <p className="muted">No hearings recorded yet.</p>}
             {hearings.length > 0 && (
-              <div
-                style={{
-                  width: "100%",
-                  overflowX: "auto",
-                  borderRadius: 12,
-                  marginTop: 12,
-                }}
-              >
-                <table
-                  style={{
-                    width: "100%",
-                    minWidth: 1500,
-                    borderCollapse: "separate",
-                    borderSpacing: 0,
-                    backgroundColor: "#ffffff",
-                    borderRadius: 12,
-                    overflow: "hidden",
-                    fontSize: 13,
-                    textAlign: "left",
-                  }}
-                >
+              <div style={{ width: "100%", overflowX: "auto", borderRadius: 12, marginTop: 12 }}>
+                <table style={{ width: "100%", minWidth: 900, borderCollapse: "separate", borderSpacing: 0, backgroundColor: "#ffffff", borderRadius: 12, overflow: "hidden", fontSize: 13, textAlign: "left" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#f1f3fa" }}>
-                      {[
-
-                        "BUNDLE NUMBER",
-                        "CASE TYPE",
-                        "COURT CASE NUMBER",
-                        "COURT NUMBER",
-
-
-
-
-                        "COURT COMPLEX",
-                        "CASE TITLE",
-
-
-                        "STATUS",
-                      ].map((heading) => (
-                        <th
-                          key={heading}
-                          style={{
-                            padding: "14px 16px",
-                            color: "#64748b",
-                            fontSize: 11,
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
-                            borderBottom: "1px solid #e2e8f0",
-                          }}
-                        >
+                      {["DATE", "BUNDLE NUMBER", "COURT", "PURPOSE", "STATUS", "OUTCOME",].map((heading) => (
+                        <th key={heading} style={{ padding: "14px 16px", color: "#64748b", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap", borderBottom: "1px solid #e2e8f0" }}>
                           {heading}
                         </th>
                       ))}
                     </tr>
                   </thead>
-
                   <tbody>
-                    {hearings.map((h) => (
-                      <tr key={h.id}>
-                        {/* <td
-                          style={{
-                            padding: "15px 16px",
-                            color: "#475569",
-                            whiteSpace: "nowrap",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          {new Date(h.hearingDate).toLocaleDateString("en-IN")}
-                        </td> */}
-
-                        <td
-                          style={{
-                            padding: "15px 16px",
-                            color: "#475569",
-                            whiteSpace: "nowrap",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          {h.case.bundleNumber ?? "—"}
-                        </td>
-
-
-                        <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
-                          {h.case.caseType ?? "—"}
-                        </td>
-
-                        <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
-                          {h.case.courtCaseNumber ?? "—"}
-                        </td>
-
-
-                        <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
-                          {h.case.courtNumber ?? "—"}
-                        </td>
-
-
-
-
-                        <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
-                          {h.courtName ?? h.case.courtName ?? "—"}
-                        </td>
-
-                        <td
-                          style={{
-                            padding: "15px 16px",
-                            color: "#2563eb",
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          {h.case.title ?? "—"}
-                        </td>
-
-
-
-                        <td
-                          style={{
-                            padding: "15px 16px",
-                            whiteSpace: "nowrap",
-                            borderBottom: "1px solid #e5e7eb",
-                          }}
-                        >
-                          <span className={`badge status-${h.status}`}>
-                            {h.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {hearings.map((h) => {
+                      const formatDate = (value: string | null | undefined) => {
+                        if (!value) return "—";
+                        const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+                        const date = dateOnly ? new Date(`${value}T00:00:00`) : new Date(value);
+                        return Number.isNaN(date.getTime()) ? "—" : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+                      };
+                      return (
+                        <tr key={h.id}>
+                          {[formatDate(h.hearingDate), h.case.bundleNumber ?? "—", h.courtName ?? h.case.courtName ?? "—", h.purpose ?? "—"].map((value, index) => (
+                            <td key={index} style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>{value}</td>
+                          ))}
+                          <td style={{ padding: "15px 16px", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>
+                            <span className={`badge status-${h.status}`}>{h.status}</span>
+                          </td>
+                          <td style={{ padding: "15px 16px", color: "#475569", borderBottom: "1px solid #e5e7eb" }}>{h.outcomeNotes ?? "—"}</td>
+                          {/* <td style={{ padding: "15px 16px", color: "#475569", whiteSpace: "nowrap", borderBottom: "1px solid #e5e7eb" }}>{formatDate(h.nextHearingDate ?? h.case.nextHearingDate)}</td> */}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
