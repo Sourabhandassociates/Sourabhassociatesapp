@@ -10,8 +10,15 @@ import { resolveViewScope } from "../permissions/viewScope";
  * records the Calendar and Case Detail already read, not a separate data source.
  */
 
-export type CauseListRangePreset = "TODAY" | "TOMORROW" | "NEXT_7_DAYS" | "THIS_WEEK" | "CUSTOM";
+export type CauseListRangePreset =
+  | "TODAY"
+  | "TOMORROW"
+  | "NEXT_7_DAYS"
+  | "THIS_WEEK"
+  | "CUSTOM";
+
 export type CauseListScope = "FIRM" | "MINE" | "EMPLOYEE";
+
 export type CauseListGroupBy = "NONE" | "COURT" | "DATE";
 
 export interface CauseListFilters {
@@ -51,156 +58,402 @@ export interface CauseListGroup {
   rows: CauseListRow[];
 }
 
-/** A defensive ceiling on how many hearings a single Cause List request (JSON or
- * export) may return — protects against an unbounded CUSTOM range on a large firm
- * producing a multi-minute PDF/Excel generation or an out-of-memory workbook. */
+/**
+ * A defensive ceiling on how many hearings a single Cause List request
+ * (JSON or export) may return.
+ */
 export const CAUSE_LIST_ROW_CAP = 5000;
 
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+/**
+ * Get calendar date according to India Standard Time.
+ */
+function getIndiaDate(date: Date = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
 
-function endOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(23, 59, 59, 999);
-  return d;
-}
-
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
+  return {
+    year: Number(parts.find((p) => p.type === "year")?.value),
+    month: Number(parts.find((p) => p.type === "month")?.value),
+    day: Number(parts.find((p) => p.type === "day")?.value),
+  };
 }
 
 /**
- * Pure, unit-testable date-range resolution — `now` is injectable so tests never
- * depend on the wall clock. THIS_WEEK is Sunday-start, matching HearingCalendar.tsx's
- * existing week-header convention.
+ * Add calendar days without depending on the server timezone.
+ */
+function addCalendarDays(
+  date: {
+    year: number;
+    month: number;
+    day: number;
+  },
+  days: number
+) {
+  const d = new Date(
+    Date.UTC(date.year, date.month - 1, date.day + days)
+  );
+
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+  };
+}
+
+/**
+ * Convert India midnight to UTC.
+ * India Standard Time is UTC+05:30.
+ */
+function indiaStartOfDay(date: {
+  year: number;
+  month: number;
+  day: number;
+}): Date {
+  return new Date(
+    Date.UTC(date.year, date.month - 1, date.day) -
+      330 * 60 * 1000
+  );
+}
+
+/**
+ * End of a calendar day in India.
+ */
+function indiaEndOfDay(date: {
+  year: number;
+  month: number;
+  day: number;
+}): Date {
+  const nextDay = addCalendarDays(date, 1);
+
+  return new Date(
+    indiaStartOfDay(nextDay).getTime() - 1
+  );
+}
+
+/**
+ * Parse YYYY-MM-DD as a calendar date.
+ */
+function parseDateOnly(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    throw new BadRequestError(
+      "Invalid date format. Use YYYY-MM-DD"
+    );
+  }
+
+  return { year, month, day };
+}
+
+/**
+ * Pure, unit-testable date-range resolution.
+ * `now` is injectable so tests never depend on the wall clock.
+ *
+ * All date boundaries are calculated using Asia/Kolkata.
  */
 export function resolveDateRange(
-  filters: Pick<CauseListFilters, "rangePreset" | "startDate" | "endDate">,
+  filters: Pick<
+    CauseListFilters,
+    "rangePreset" | "startDate" | "endDate"
+  >,
   now: Date = new Date()
 ): { start: Date; end: Date } {
+  const today = getIndiaDate(now);
+
   switch (filters.rangePreset) {
     case "TODAY":
-      return { start: startOfDay(now), end: endOfDay(now) };
+      return {
+        start: indiaStartOfDay(today),
+        end: indiaEndOfDay(today),
+      };
+
     case "TOMORROW": {
-      const tomorrow = addDays(now, 1);
-      return { start: startOfDay(tomorrow), end: endOfDay(tomorrow) };
+      const tomorrow = addCalendarDays(today, 1);
+
+      return {
+        start: indiaStartOfDay(tomorrow),
+        end: indiaEndOfDay(tomorrow),
+      };
     }
+
     case "NEXT_7_DAYS": {
-      // Cause List filter simplification (2026-08-11) — NEXT_7_DAYS is deliberately
-      // exclusive of today (TODAY and TOMORROW are their own separate filters): the
-      // window is the 7 calendar days starting tomorrow, i.e. tomorrow through day+7.
-      const tomorrow = addDays(now, 1);
-      return { start: startOfDay(tomorrow), end: endOfDay(addDays(now, 7)) };
+      // Tomorrow through the 7th calendar day from today.
+      const tomorrow = addCalendarDays(today, 1);
+      const daySeven = addCalendarDays(today, 7);
+
+      return {
+        start: indiaStartOfDay(tomorrow),
+        end: indiaEndOfDay(daySeven),
+      };
     }
+
     case "THIS_WEEK": {
-      const dayOfWeek = now.getDay(); // 0 = Sunday
-      const weekStart = addDays(now, -dayOfWeek);
-      const weekEnd = addDays(weekStart, 6);
-      return { start: startOfDay(weekStart), end: endOfDay(weekEnd) };
+      // Sunday-start week, based on India calendar date.
+      const todayUtc = new Date(
+        Date.UTC(today.year, today.month - 1, today.day)
+      );
+
+      const dayOfWeek = todayUtc.getUTCDay();
+
+      const weekStart = addCalendarDays(today, -dayOfWeek);
+      const weekEnd = addCalendarDays(weekStart, 6);
+
+      return {
+        start: indiaStartOfDay(weekStart),
+        end: indiaEndOfDay(weekEnd),
+      };
     }
+
     case "CUSTOM": {
       if (!filters.startDate || !filters.endDate) {
-        throw new BadRequestError("startDate and endDate are required when rangePreset is CUSTOM");
+        throw new BadRequestError(
+          "startDate and endDate are required when rangePreset is CUSTOM"
+        );
       }
-      return { start: startOfDay(new Date(filters.startDate)), end: endOfDay(new Date(filters.endDate)) };
+
+      const startDate = parseDateOnly(filters.startDate);
+      const endDate = parseDateOnly(filters.endDate);
+
+      return {
+        start: indiaStartOfDay(startDate),
+        end: indiaEndOfDay(endDate),
+      };
     }
   }
 }
 
 /**
- * Groups an already-fetched row list for on-screen or exported rendering — pure,
- * no DB access. Court-wise groups by courtName (blank court last); Date-wise groups
- * by the hearing's calendar date. Deliberately reimplemented in the frontend (TypeScript,
- * same logic) rather than shared across the network boundary — this codebase already
- * buckets Hearing data client-side in HearingCalendar.tsx.
+ * Groups an already-fetched row list for on-screen or exported rendering.
+ * Court-wise groups by courtName.
+ * Date-wise groups by the hearing's calendar date.
  */
-export function groupRows(rows: CauseListRow[], groupBy: CauseListGroupBy): CauseListGroup[] {
-  if (groupBy === "NONE") return [{ label: null, rows }];
+export function groupRows(
+  rows: CauseListRow[],
+  groupBy: CauseListGroupBy
+): CauseListGroup[] {
+  if (groupBy === "NONE") {
+    return [{ label: null, rows }];
+  }
 
   const buckets = new Map<string, CauseListRow[]>();
+
   for (const row of rows) {
     const key =
-      groupBy === "COURT" ? (row.courtName ?? "Unspecified Court") : row.hearingDate.toISOString().slice(0, 10);
+      groupBy === "COURT"
+        ? row.courtName ?? "Unspecified Court"
+        : row.hearingDate.toISOString().slice(0, 10);
+
     const bucket = buckets.get(key) ?? [];
+
     bucket.push(row);
+
     buckets.set(key, bucket);
   }
 
   return [...buckets.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([label, groupRowsForLabel]) => ({ label, rows: groupRowsForLabel }));
+    .map(([label, groupRowsForLabel]) => ({
+      label,
+      rows: groupRowsForLabel,
+    }));
 }
 
 /**
- * "Firm/My/Employee" is a filter on top of the actor's existing CASES row-level
- * scope, not a new permission tier — FIRM/EMPLOYEE are only meaningful when the
- * actor's resolved CASES scope is already ALL (today: Managing Partner, Office
- * Staff). For anyone else, caseScopeWhere() below already hard-restricts the query
- * to their own assigned cases regardless of what scope they request; this downgrade
- * just keeps the *filter semantics* honest (no silent "you asked for Firm but got
- * Mine" surprise) rather than relying solely on that lower-level enforcement.
+ * "Firm/My/Employee" is a filter on top of the actor's existing CASES
+ * row-level scope.
  */
-export async function listCauseList(actor: AccessTokenPayload, filters: CauseListFilters) {
+export async function listCauseList(
+  actor: AccessTokenPayload,
+  filters: CauseListFilters
+) {
   const { start, end } = resolveDateRange(filters);
-  const casesScope = resolveViewScope(actor as AuthorizedActor, "CASES");
+
+  const casesScope = resolveViewScope(
+    actor as AuthorizedActor,
+    "CASES"
+  );
+
   const canViewFirmWide = casesScope === "ALL";
-  const effectiveScope: CauseListScope = canViewFirmWide ? filters.scope : "MINE";
 
-  if (effectiveScope === "EMPLOYEE" && !filters.employeeId) {
-    throw new BadRequestError("employeeId is required when scope is EMPLOYEE");
+  const effectiveScope: CauseListScope = canViewFirmWide
+    ? filters.scope
+    : "MINE";
+
+  if (
+    effectiveScope === "EMPLOYEE" &&
+    !filters.employeeId
+  ) {
+    throw new BadRequestError(
+      "employeeId is required when scope is EMPLOYEE"
+    );
   }
 
-  // Associates receive case visibility for a hearing explicitly assigned to them.
-  // Do not additionally require the case to list them as Partner/Advocate; that
-  // was the reason assigned hearings were missing from their Cause List.
-  const caseConditions: Prisma.CaseWhereInput[] = actor.role === "ASSOCIATE"
-    ? [{ deletedAt: null }]
-    : [caseScopeWhere(actor as AuthorizedActor), { deletedAt: null }];
+  /**
+   * Associates receive case visibility for a hearing explicitly
+   * assigned to them.
+   */
+  const caseConditions: Prisma.CaseWhereInput[] =
+    actor.role === "ASSOCIATE"
+      ? [{ deletedAt: null }]
+      : [
+          caseScopeWhere(actor as AuthorizedActor),
+          { deletedAt: null },
+        ];
 
-  if (actor.role !== "ASSOCIATE" && effectiveScope === "MINE") {
-    caseConditions.push({ OR: [{ partnerId: actor.sub }, { advocates: { some: { userId: actor.sub } } }] });
-  } else if (actor.role !== "ASSOCIATE" && effectiveScope === "EMPLOYEE" && filters.employeeId) {
-    caseConditions.push({
-      OR: [{ partnerId: filters.employeeId }, { advocates: { some: { userId: filters.employeeId } } }],
-    });
-  }
-  // effectiveScope === "FIRM": no extra condition beyond caseScopeWhere (already {} for ALL scope).
-
-  // The Advocate filter composes independently of the Firm/My/Employee toggle, so a
-  // Managing Partner in Firm mode can further narrow to one advocate without switching modes.
-  if (filters.advocateId) {
-    caseConditions.push({
-      OR: [{ partnerId: filters.advocateId }, { advocates: { some: { userId: filters.advocateId } } }],
-    });
-  }
-  if (filters.clientId) caseConditions.push({ clients: { some: { clientId: filters.clientId } } });
-  if (filters.stage) caseConditions.push({ stage: filters.stage });
-  if (filters.search) {
-    const q = filters.search;
+  if (
+    actor.role !== "ASSOCIATE" &&
+    effectiveScope === "MINE"
+  ) {
     caseConditions.push({
       OR: [
-        { matterNumber: { contains: q, mode: "insensitive" } },
-        { title: { contains: q, mode: "insensitive" } },
-        { courtCaseNumber: { contains: q, mode: "insensitive" } },
-        { clients: { some: { client: { name: { contains: q, mode: "insensitive" } } } } },
+        { partnerId: actor.sub },
+        {
+          advocates: {
+            some: {
+              userId: actor.sub,
+            },
+          },
+        },
+      ],
+    });
+  } else if (
+    actor.role !== "ASSOCIATE" &&
+    effectiveScope === "EMPLOYEE" &&
+    filters.employeeId
+  ) {
+    caseConditions.push({
+      OR: [
+        { partnerId: filters.employeeId },
+        {
+          advocates: {
+            some: {
+              userId: filters.employeeId,
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  // effectiveScope === "FIRM": no extra condition.
+
+  // Advocate filter.
+  if (filters.advocateId) {
+    caseConditions.push({
+      OR: [
+        { partnerId: filters.advocateId },
+        {
+          advocates: {
+            some: {
+              userId: filters.advocateId,
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  if (filters.clientId) {
+    caseConditions.push({
+      clients: {
+        some: {
+          clientId: filters.clientId,
+        },
+      },
+    });
+  }
+
+  if (filters.stage) {
+    caseConditions.push({
+      stage: filters.stage,
+    });
+  }
+
+  if (filters.search) {
+    const q = filters.search;
+
+    caseConditions.push({
+      OR: [
+        {
+          matterNumber: {
+            contains: q,
+            mode: "insensitive",
+          },
+        },
+        {
+          title: {
+            contains: q,
+            mode: "insensitive",
+          },
+        },
+        {
+          courtCaseNumber: {
+            contains: q,
+            mode: "insensitive",
+          },
+        },
+        {
+          clients: {
+            some: {
+              client: {
+                name: {
+                  contains: q,
+                  mode: "insensitive",
+                },
+              },
+            },
+          },
+        },
       ],
     });
   }
 
   const hearingConditions: Prisma.HearingWhereInput[] = [
-    { hearingDate: { gte: start, lte: end } },
-    { case: { AND: caseConditions } },
+    {
+      hearingDate: {
+        gte: start,
+        lte: end,
+      },
+    },
+    {
+      case: {
+        AND: caseConditions,
+      },
+    },
   ];
-  if (filters.courtName) hearingConditions.push({ courtName: filters.courtName });
-  if (filters.courtHall) hearingConditions.push({ courtHall: filters.courtHall });
-  if (filters.status) hearingConditions.push({ status: filters.status });
 
-  const totalCount = await prisma.hearing.count({ where: { AND: hearingConditions } });
+  if (filters.courtName) {
+    hearingConditions.push({
+      courtName: filters.courtName,
+    });
+  }
+
+  if (filters.courtHall) {
+    hearingConditions.push({
+      courtHall: filters.courtHall,
+    });
+  }
+
+  if (filters.status) {
+    hearingConditions.push({
+      status: filters.status,
+    });
+  }
+
+  const totalCount = await prisma.hearing.count({
+    where: {
+      AND: hearingConditions,
+    },
+  });
+
   if (totalCount > CAUSE_LIST_ROW_CAP) {
     throw new BadRequestError(
       `This range would return ${totalCount} hearings, which exceeds the ${CAUSE_LIST_ROW_CAP}-row export limit — narrow the date range or filters.`
@@ -208,7 +461,9 @@ export async function listCauseList(actor: AccessTokenPayload, filters: CauseLis
   }
 
   const hearings = await prisma.hearing.findMany({
-    where: { AND: hearingConditions },
+    where: {
+      AND: hearingConditions,
+    },
     include: {
       case: {
         select: {
@@ -216,44 +471,105 @@ export async function listCauseList(actor: AccessTokenPayload, filters: CauseLis
           matterNumber: true,
           title: true,
           stage: true,
-          partner: { select: { id: true, name: true } },
-          advocates: { include: { user: { select: { id: true, name: true } } } },
-          clients: { include: { client: { select: { id: true, name: true } } } },
+          partner: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          advocates: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          clients: {
+            include: {
+              client: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
       },
     },
-    orderBy: [{ hearingDate: "asc" }],
+    orderBy: [
+      {
+        hearingDate: "asc",
+      },
+    ],
   });
 
-  // Batched follow-up for "Next Hearing Date" on rows whose own hearing isn't the
-  // case's current SCHEDULED one (e.g. a COMPLETED row surfaced by a historical
-  // custom-range query) — one query over the distinct caseIds already fetched,
-  // never per-row, and no denormalization of Hearing data anywhere.
-  const caseIds = [...new Set(hearings.map((h) => h.caseId))];
+  /**
+   * Batched follow-up for Next Hearing Date.
+   */
+  const caseIds = [
+    ...new Set(hearings.map((h) => h.caseId)),
+  ];
+
   const currentScheduled = await prisma.hearing.findMany({
-    where: { caseId: { in: caseIds }, status: "SCHEDULED" },
-    select: { caseId: true, hearingDate: true },
+    where: {
+      caseId: {
+        in: caseIds,
+      },
+      status: "SCHEDULED",
+    },
+    select: {
+      caseId: true,
+      hearingDate: true,
+    },
   });
-  const nextByCaseId = new Map(currentScheduled.map((h) => [h.caseId, h.hearingDate]));
+
+  const nextByCaseId = new Map(
+    currentScheduled.map((h) => [
+      h.caseId,
+      h.hearingDate,
+    ])
+  );
 
   const rows: CauseListRow[] = hearings.map((h) => ({
     id: h.id,
     caseId: h.case.id,
     matterNumber: h.case.matterNumber,
-    // New Case form simplification (2026-08-11) — Case.title is now optional;
-    // fall back to the always-present Matter Number, matching Global Search's
-    // same fallback (search.service.ts).
-    causeTitle: h.case.title ?? h.case.matterNumber,
-    clientNames: h.case.clients.map((c) => c.client.name),
+
+    // Case title fallback to Matter Number.
+    causeTitle:
+      h.case.title ?? h.case.matterNumber,
+
+    clientNames: h.case.clients.map(
+      (c) => c.client.name
+    ),
+
     courtName: h.courtName,
     courtHall: h.courtHall,
     hearingDate: h.hearingDate,
     hearingPurpose: h.purpose,
     caseStage: h.case.stage,
-    advocates: [h.case.partner, ...h.case.advocates.map((a) => a.user)],
+
+    advocates: [
+      h.case.partner,
+      ...h.case.advocates.map((a) => a.user),
+    ],
+
     hearingStatus: h.status,
-    nextHearingDate: h.status === "SCHEDULED" ? h.hearingDate : (nextByCaseId.get(h.caseId) ?? null),
+
+    nextHearingDate:
+      h.status === "SCHEDULED"
+        ? h.hearingDate
+        : nextByCaseId.get(h.caseId) ?? null,
   }));
 
-  return { rows, meta: { canViewFirmWide } };
+  return {
+    rows,
+    meta: {
+      canViewFirmWide,
+    },
+  };
 }

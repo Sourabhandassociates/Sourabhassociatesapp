@@ -84,7 +84,12 @@ export function NotificationBell() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
+                    // Clicking the toast opens the announcement and marks it read.
+                    try { await api.patch(`/notifications/${item.id}/read`); } catch (err) { console.error(err); }
+                    try { await api.patch(`/announcements/${item.entityId}/read`); } catch (err) { console.error(err); }
+                    seenNotificationIds.current?.add(item.id);
+                    refreshCount();
                     toast.dismiss(t.id);
                     navigate(`/announcements/${item.entityId}`);
                   }}

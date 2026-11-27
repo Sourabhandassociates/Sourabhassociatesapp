@@ -6,16 +6,27 @@ import { AccessTokenPayload } from "../../utils/jwt";
  * there's no row-level scoping function to reuse (unlike Cases/Clients/Documents) and
  * no new permission key either (analogous to "My Tasks"/TASKS.VIEW_OWN, which every
  * role holds by default). */
+const ANNOUNCEMENT_RETENTION_HOURS = 24;
+function announcementCutoff() {
+  return new Date(Date.now() - ANNOUNCEMENT_RETENTION_HOURS * 60 * 60 * 1000);
+}
+const notificationRetentionFilter = () => ({
+  OR: [
+    { entityType: { not: "Announcement" } },
+    { entityType: "Announcement", createdAt: { gte: announcementCutoff() } },
+  ],
+});
+
 export async function listNotifications(actor: AccessTokenPayload, unreadOnly: boolean) {
   return prisma.notification.findMany({
-    where: { userId: actor.sub, ...(unreadOnly ? { isRead: false } : {}) },
+    where: { userId: actor.sub, ...notificationRetentionFilter(), ...(unreadOnly ? { isRead: false } : {}) },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
 }
 
 export async function unreadCount(actor: AccessTokenPayload) {
-  return prisma.notification.count({ where: { userId: actor.sub, isRead: false } });
+  return prisma.notification.count({ where: { userId: actor.sub, isRead: false, ...notificationRetentionFilter() } });
 }
 
 export async function markRead(actor: AccessTokenPayload, id: string) {

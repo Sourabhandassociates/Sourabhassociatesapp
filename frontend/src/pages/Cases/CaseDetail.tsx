@@ -1979,6 +1979,14 @@ function Tasks({
 }
 
 
+function formatHearingDateForInput(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 function Hearings({
   caseId,
   bundleNumber,
@@ -2014,7 +2022,7 @@ function Hearings({
   // Load the existing scheduled hearing details.
   useEffect(() => {
     if (upcoming) {
-      setHearingDate(upcoming.hearingDate.slice(0, 10));
+      setHearingDate(formatHearingDateForInput(upcoming.hearingDate));
       setCourtName(upcoming.courtName ?? "");
       setCourtHall(upcoming.courtHall ?? "");
       setJudgeName(upcoming.judgeName ?? "");
